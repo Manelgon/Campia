@@ -14,8 +14,18 @@ export const createBookingAction = async (formData: FormData) => {
 
     const supabase = await createClient();
 
+    // Get current user's property_id
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "No autenticado" };
+
+    const { data: profile } = await supabase.from("profiles").select("property_id").eq("id", user.id).single();
+
+    if (!profile?.property_id) {
+        return { error: "Tu usuario no está vinculado a ninguna propiedad." };
+    }
+
     const { error } = await supabase.from("bookings").insert({
-        property_id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", // Hardcoded for MVP/Demo
+        property_id: profile.property_id,
         unit_id: unitId,
         guest_id: guestId,
         check_in_date: checkIn,
@@ -100,26 +110,48 @@ export const checkOutAction = async (bookingId: string) => {
 
     // 4. Deactivate Guest Access (Security Requirement)
     if (booking.guest_id) {
-        // Find guest and their user_id
-        const { data: guest } = await supabase.from("guests").select("user_id").eq("id", booking.guest_id).single();
-        if (guest?.user_id) {
-            // We need to use Admin Client to delete user or block them. 
-            // Since this action is run by staff (authenticated), we can use Service Role if we import it, 
-            // OR we can just unlink the user_id from the guest record so they can't login as 'guest' anymore.
-            // Unlinking is safer/easier here without needing full admin client in this file,
-            // BUT they still have a user in Auth. Ideally we delete the user.
-
-            // For MVP: Unlink user_id from Guest Profile. 
-            // This effectively stops them from fetching their data (policies rely on user_id match).
-            // And we should probably also update the Auth User strict security, but this is a good first step.
-
-            await supabase.from("guests").update({ user_id: null }).eq("id", booking.guest_id);
-
-            // If we want to fully delete the Auth User, we need Service Role client here.
-            // Let's stick to unlinking for now as it solves the "Access" problem (RLS won't match).
-        }
+        // Unlink guest from user_id so they can no longer access dashboard
+        await supabase.from("guests").update({ user_id: null }).eq("id", booking.guest_id);
     }
 
     revalidatePath("/dashboard/bookings");
     revalidatePath("/dashboard/units");
+};
+
+export const getAvailableUnitsAction = async (checkIn: string, checkOut: string) => {
+    const supabase = await createClient();
+
+    // 1. Get current user's property_id (to filter units by property)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "No autenticado" };
+
+    const { data: profile } = await supabase.from("profiles").select("property_id").eq("id", user.id).single();
+    if (!profile?.property_id) return { error: "Propiedad no encontrada" };
+
+    // 2. Find units that have overlapping bookings
+    // Overlap condition: (StartA < EndB) and (EndA > StartB)
+    const { data: busyUnits } = await supabase
+        .from("bookings")
+        .select("unit_id")
+        .eq("property_id", profile.property_id)
+        .in("status", ["confirmed", "checked_in"])
+        .lt("check_in_date", checkOut)
+        .gt("check_out_date", checkIn);
+
+    const busyUnitIds = busyUnits?.map(b => b.unit_id) || [];
+
+    // 3. Fetch units that are NOT in the busy list
+    let query = supabase
+        .from("units")
+        .select("id, name, type, capacity, status")
+        .eq("property_id", profile.property_id);
+
+    if (busyUnitIds.length > 0) {
+        query = query.not("id", "in", `(${busyUnitIds.map(id => `"${id}"`).join(',')})`);
+    }
+
+    const { data: units, error } = await query.order("name");
+
+    if (error) return { error: error.message };
+    return { units };
 };

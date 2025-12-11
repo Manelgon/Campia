@@ -48,3 +48,9 @@ export const signUpAction = async (formData: FormData) => {
 
     return { message: "Check your email to verify your account" };
 };
+
+export const signOutAction = async () => {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+    return redirect("/login");
+};

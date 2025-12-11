@@ -12,10 +12,19 @@ export function MobileSidebar() {
     const [open, setOpen] = useState(false);
     const pathname = usePathname();
 
+    // Fix Hydration Mismatch by only rendering on client
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     // Close on navigation
     useEffect(() => {
         setOpen(false);
     }, [pathname]);
+
+    if (!isMounted) return null;
 
     return (
         <Sheet open={open} onOpenChange={setOpen}>

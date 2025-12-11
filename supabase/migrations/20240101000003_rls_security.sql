@@ -5,7 +5,7 @@ returns uuid as $$
 $$ language sql security definer stable;
 
 -- 2. Add property_id to Guests for isolation
-alter table public.guests convert to charset utf8; -- Just kidding, Postgres.
+-- (Removed invalid syntax)
 alter table public.guests add column if not exists property_id uuid references public.properties(id);
 -- For existing guests, we might need a default or manual update. For MVP assume new or blank is ok (hidden).
 
@@ -37,6 +37,10 @@ create policy "Read own property" on public.properties
   for select using (id = get_auth_property_id());
 
 -- PROFILES: Read profiles in same property
+-- Allow reading own profile unconditionally (breaks recursion for property_id lookup)
+create policy "Read own profile" on public.profiles
+  for select using (id = auth.uid());
+
 create policy "Read same property profiles" on public.profiles
   for select using (property_id = get_auth_property_id());
 

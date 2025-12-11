@@ -20,3 +20,11 @@ values
 insert into public.bookings (property_id, unit_id, guest_id, check_in_date, check_out_date, status, total_amount, guests_count)
 values
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', (select id from public.units where name = 'Parcela 101'), 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b22', CURRENT_DATE, CURRENT_DATE + 3, 'checked_in', 75.00, 2);
+
+-- Seed Extras (Moved from financials migration)
+insert into public.extras (property_id, name, price, type)
+values 
+  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Breakfast', 15.00, 'service'),
+  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Late Check-out', 30.00, 'service'),
+  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Bike Rental', 20.00, 'service'),
+  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Parking', 10.00, 'service');

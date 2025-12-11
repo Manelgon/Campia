@@ -4,26 +4,67 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { createBookingAction } from "../actions";
-import { useState } from "react";
+import { createBookingAction, getAvailableUnitsAction } from "../actions";
+import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { GuestSelector } from "@/components/dashboard/bookings/guest-selector";
 
-export function BookingForm({ units, guests }: { units: any[], guests: any[] }) {
+export function BookingForm({ units: initialUnits, guests }: { units: any[], guests: any[] }) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [selectedGuestId, setSelectedGuestId] = useState("");
+
+    // Availability State
+    const [dates, setDates] = useState({ checkIn: "", checkOut: "" });
+    const [availableUnits, setAvailableUnits] = useState<any[]>(initialUnits); // Start with all, or empty? User wants strict check.
+    const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+
+    // Disable unit select if no dates or checking
+    const isUnitSelectDisabled = !dates.checkIn || !dates.checkOut || isCheckingAvailability || isLoading;
+
+    useEffect(() => {
+        const checkAvailability = async () => {
+            if (dates.checkIn && dates.checkOut) {
+                setIsCheckingAvailability(true);
+                // Reset unit selection? Ideally yes, but native select state is hard to control without value prop.
+                // We'll trust the user to re-select or we can force it if we controlled the select value.
+
+                const res = await getAvailableUnitsAction(dates.checkIn, dates.checkOut);
+
+                if (res.error) {
+                    toast.error("Error comprobando disponibilidad");
+                } else if (res.units) {
+                    setAvailableUnits(res.units);
+                    if (res.units.length === 0) {
+                        toast.warning("No hay unidades disponibles para estas fechas.");
+                    }
+                }
+                setIsCheckingAvailability(false);
+            }
+        };
+
+        const timeout = setTimeout(checkAvailability, 500); // Debounce
+        return () => clearTimeout(timeout);
+    }, [dates]);
 
     const handleSubmit = async (formData: FormData) => {
+        if (isLoading) return; // Prevent double submission
         setIsLoading(true);
         setError(null);
-        const res = await createBookingAction(formData);
-        if (res?.error) {
-            setError(res.error);
-            toast.error("Error al crear reserva: " + res.error);
+        try {
+            const res = await createBookingAction(formData);
+            if (res?.error) {
+                setError(res.error);
+                toast.error("Error al crear reserva: " + res.error);
+                setIsLoading(false);
+            } else {
+                toast.success("Reserva creada correctamente");
+                // Redirect handles success
+            }
+        } catch (e) {
+            setError("Error inesperado");
             setIsLoading(false);
-        } else {
-            toast.success("Reserva creada correctamente");
-            // Redirect handles success, but we can optimistically show success
         }
     };
 
@@ -37,11 +78,25 @@ export function BookingForm({ units, guests }: { units: any[], guests: any[] }) 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="checkIn">Fecha de Entrada</Label>
-                            <Input type="date" id="checkIn" name="checkIn" required disabled={isLoading} />
+                            <Input
+                                type="date"
+                                id="checkIn"
+                                name="checkIn"
+                                required
+                                disabled={isLoading}
+                                onChange={(e) => setDates(prev => ({ ...prev, checkIn: e.target.value }))}
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="checkOut">Fecha de Salida</Label>
-                            <Input type="date" id="checkOut" name="checkOut" required disabled={isLoading} />
+                            <Input
+                                type="date"
+                                id="checkOut"
+                                name="checkOut"
+                                required
+                                disabled={isLoading}
+                                onChange={(e) => setDates(prev => ({ ...prev, checkOut: e.target.value }))}
+                            />
                         </div>
                     </div>
 
@@ -51,19 +106,10 @@ export function BookingForm({ units, guests }: { units: any[], guests: any[] }) 
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="guestId">Huésped</Label>
-                        <select
-                            id="guestId"
-                            name="guestId"
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
-                            required
-                            disabled={isLoading}
-                        >
-                            <option value="">Seleccionar huésped...</option>
-                            {guests?.map(guest => (
-                                <option key={guest.id} value={guest.id}>{guest.full_name}</option>
-                            ))}
-                        </select>
+                        <Label>Huésped</Label>
+                        {/* Hidden input to pass value to Server Action via FormData */}
+                        <input type="hidden" name="guestId" value={selectedGuestId} />
+                        <GuestSelector onSelect={setSelectedGuestId} />
                     </div>
 
                     <div className="space-y-2">
@@ -73,13 +119,23 @@ export function BookingForm({ units, guests }: { units: any[], guests: any[] }) 
                             name="unitId"
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
                             required
-                            disabled={isLoading}
+                            disabled={isUnitSelectDisabled}
                         >
-                            <option value="">Seleccionar unidad...</option>
-                            {units?.map(unit => (
-                                <option key={unit.id} value={unit.id}>{unit.name}</option>
+                            <option value="">
+                                {(!dates.checkIn || !dates.checkOut) ? "Seleccione fechas primero..." :
+                                    isCheckingAvailability ? "Comprobando disponibilidad..." :
+                                        availableUnits.length === 0 ? "No hay unidades disponibles" :
+                                            "Seleccionar unidad..."}
+                            </option>
+                            {availableUnits?.map(unit => (
+                                <option key={unit.id} value={unit.id}>
+                                    {unit.name} ({unit.type}) - Cap: {unit.capacity}
+                                </option>
                             ))}
                         </select>
+                        {availableUnits.length === 0 && dates.checkIn && dates.checkOut && !isCheckingAvailability && (
+                            <p className="text-xs text-red-500">No hay alojamientos disponibles para estas fechas.</p>
+                        )}
                     </div>
 
                     {error && (
@@ -89,7 +145,7 @@ export function BookingForm({ units, guests }: { units: any[], guests: any[] }) 
                     )}
 
                     <div className="pt-4">
-                        <Button type="submit" className="w-full" disabled={isLoading}>
+                        <Button type="submit" className="w-full" disabled={isLoading || availableUnits.length === 0}>
                             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Crear Reserva
                         </Button>

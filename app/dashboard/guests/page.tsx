@@ -11,6 +11,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 
+import { AddGuestDialog } from "@/components/dashboard/guests/add-guest-dialog";
+
 export default async function GuestsPage() {
     const supabase = await createClient();
     const { data: guests } = await supabase
@@ -22,6 +24,7 @@ export default async function GuestsPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold tracking-tight">Huéspedes / Clientes</h2>
+                <AddGuestDialog />
             </div>
 
             <Card>
@@ -44,7 +47,7 @@ export default async function GuestsPage() {
                             {guests?.map((guest) => (
                                 <TableRow key={guest.id}>
                                     <TableCell className="font-medium">
-                                        <Link href={`/dashboard/guests/${guest.id}`} className="hover:underline text-blue-600">
+                                        <Link href={`/dashboard/guests/${guest.id}`} className="hover:underline text-primary">
                                             {guest.full_name}
                                         </Link>
                                     </TableCell>

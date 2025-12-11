@@ -7,9 +7,9 @@ import { createInvoiceAction } from "@/app/dashboard/financials/actions";
 import { Button } from "@/components/ui/button";
 import { FileText, Save } from "lucide-react";
 
-export default async function BookingDetailPage({ params }: { params: { id: string } }) {
+export default async function BookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient();
-    const { id } = params;
+    const { id } = await params;
 
     // 1. Fetch Booking
     const { data: booking } = await supabase

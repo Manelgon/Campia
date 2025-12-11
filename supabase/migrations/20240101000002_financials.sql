@@ -62,9 +62,4 @@ create policy "Enable read access for authenticated users" on public.payments fo
 create policy "Enable write access for authenticated users" on public.payments for all using (auth.role() = 'authenticated');
 
 -- Seed some extras
-insert into public.extras (property_id, name, price, type)
-values 
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Breakfast', 15.00, 'service'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Late Check-out', 30.00, 'service'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Bike Rental', 20.00, 'service'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Parking', 10.00, 'service');
+-- Seed data moved to seed.sql to avoid foreign key errors during migration

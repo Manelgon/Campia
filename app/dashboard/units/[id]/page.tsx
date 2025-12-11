@@ -12,9 +12,9 @@ import {
 } from "@/components/ui/table";
 import { UnitActions } from "@/components/dashboard/unit-actions";
 
-export default async function UnitPage({ params }: { params: { id: string } }) {
+export default async function UnitPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient();
-    const { id } = params;
+    const { id } = await params;
 
     const { data: unit } = await supabase
         .from("units")
@@ -71,12 +71,12 @@ export default async function UnitPage({ params }: { params: { id: string } }) {
                         <div>
                             <span className="font-semibold">Estado:</span>
                             <span className={`ml-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${unit.status === "clean"
-                                    ? "bg-green-100 text-green-800"
-                                    : unit.status === "occupied"
-                                        ? "bg-blue-100 text-blue-800"
-                                        : unit.status === "dirty"
-                                            ? "bg-red-100 text-red-800"
-                                            : "bg-gray-100 text-gray-800"
+                                ? "bg-green-100 text-green-800"
+                                : unit.status === "occupied"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : unit.status === "dirty"
+                                        ? "bg-red-100 text-red-800"
+                                        : "bg-gray-100 text-gray-800"
                                 }`}>
                                 {unit.status}
                             </span>
@@ -125,7 +125,7 @@ export default async function UnitPage({ params }: { params: { id: string } }) {
                                     <TableCell>{ticket.title}</TableCell>
                                     <TableCell>
                                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ticket.priority === 'high' || ticket.priority === 'critical' ? 'bg-red-100 text-red-800' :
-                                                ticket.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'
+                                            ticket.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'
                                             }`}>
                                             {ticket.priority}
                                         </span>
