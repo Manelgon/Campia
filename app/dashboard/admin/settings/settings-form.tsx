@@ -37,6 +37,18 @@ export function SettingsForm({ property }: { property: any }) {
                 <Label htmlFor="address">Dirección</Label>
                 <Input id="address" name="address" defaultValue={property?.address || ""} disabled={isLoading} />
             </div>
+            <div className="space-y-2">
+                <Label htmlFor="phone">Teléfono de Contacto</Label>
+                <Input id="phone" name="phone" type="tel" defaultValue={property?.phone || ""} disabled={isLoading} placeholder="+34 600 000 000" />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="email">Email de Contacto</Label>
+                <Input id="email" name="email" type="email" defaultValue={property?.email || ""} disabled={isLoading} placeholder="contacto@camping.com" />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="website_url">Sitio Web</Label>
+                <Input id="website_url" name="website_url" type="url" defaultValue={property?.website_url || ""} disabled={isLoading} placeholder="https://www.misitioweb.com" />
+            </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
             {message && <p className="text-sm text-green-500">{message}</p>}
             <Button type="submit" disabled={isLoading}>

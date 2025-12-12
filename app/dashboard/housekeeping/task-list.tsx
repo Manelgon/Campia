@@ -1,11 +1,20 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { completeTaskAction, assignTaskAction } from "./actions";
 import { useState } from "react";
-import { Loader2, CheckCircle, User as UserIcon, Calendar } from "lucide-react";
+import { Loader2, CheckCircle, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 
 type Task = {
     id: string;
@@ -28,81 +37,101 @@ export function TaskList({ tasks, currentUserId, staffMembers }: { tasks: Task[]
     };
 
     return (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {tasks.map((task) => (
-                <Card key={task.id} className={`${task.priority === 'high' ? 'border-l-4 border-l-red-500' : ''}`}>
-                    <CardHeader className="pb-2">
-                        <div className="flex justify-between items-start">
-                            <CardTitle className="text-xl">{task.units?.name}</CardTitle>
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold uppercase 
-                                ${task.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                {task.status.replace('_', ' ')}
-                            </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground capitalize">{task.units?.type}</p>
-                    </CardHeader>
-                    <CardContent className="pb-2 space-y-2">
-                        <div className="flex items-center text-sm text-gray-600">
-                            <Calendar className="mr-2 h-4 w-4" />
-                            {format(new Date(task.created_at), "dd MMM, HH:mm")}
-                        </div>
-                        <div className="flex items-center text-sm text-gray-600">
-                            <UserIcon className="mr-2 h-4 w-4" />
-                            {task.profiles?.full_name || "Sin asignar"}
-                        </div>
-                        {task.priority === 'high' && (
-                            <div className="text-xs font-bold text-red-600 mt-1">
-                                PRIORIDAD ALTA (Check-out)
-                            </div>
+        <Card>
+            <CardHeader>
+                <CardTitle>Listado de Tareas</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Unidad</TableHead>
+                            <TableHead>Prioridad</TableHead>
+                            <TableHead>Asignado A</TableHead>
+                            <TableHead>Fecha</TableHead>
+                            <TableHead>Estado</TableHead>
+                            <TableHead className="text-right">Acciones</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {tasks.map((task) => (
+                            <TableRow key={task.id}>
+                                <TableCell className="font-medium">
+                                    <div>{task.units?.name}</div>
+                                    <div className="text-xs text-muted-foreground capitalize">{task.units?.type}</div>
+                                </TableCell>
+                                <TableCell>
+                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium 
+                                        ${task.priority === 'high' ? 'bg-red-100 text-red-800' :
+                                            task.priority === 'low' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                        {task.priority === 'high' ? 'ALTA' : task.priority === 'low' ? 'BAJA' : 'NORMAL'}
+                                    </span>
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex flex-col gap-1 max-w-[180px]">
+                                        {task.status !== 'completed' ? (
+                                            <form action={async (formData) => {
+                                                await assignTaskAction(formData);
+                                            }} className="flex gap-2 items-center">
+                                                <input type="hidden" name="taskId" value={task.id} />
+                                                <select
+                                                    name="userId"
+                                                    className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs shadow-sm transition-colors"
+                                                    defaultValue={task.assigned_to || ""}
+                                                >
+                                                    <option value="">Sin asignar</option>
+                                                    {staffMembers?.map(staff => (
+                                                        <option key={staff.id} value={staff.id}>{staff.full_name}</option>
+                                                    ))}
+                                                </select>
+                                                <Button type="submit" size="icon" variant="ghost" className="h-8 w-8">
+                                                    <CheckCircle className="h-3 w-3" />
+                                                </Button>
+                                            </form>
+                                        ) : (
+                                            <span className="text-sm">{task.profiles?.full_name || "Sin asignar"}</span>
+                                        )}
+                                    </div>
+                                </TableCell>
+                                <TableCell>{format(new Date(task.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
+                                <TableCell>
+                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize
+                                        ${task.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                        {task.status.replace('_', ' ')}
+                                    </span>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex justify-end gap-2">
+                                        {task.status !== 'completed' && (
+                                            <Button
+                                                size="sm"
+                                                className="h-8 bg-green-600 hover:bg-green-700 text-xs"
+                                                onClick={() => handleComplete(task.id, task.unit_id)}
+                                                disabled={loadingId === task.id}
+                                            >
+                                                {loadingId === task.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle className="mr-1 h-3 w-3" />}
+                                                Start
+                                            </Button>
+                                        )}
+                                        <Button variant="outline" size="icon" className="h-8 w-8 text-yellow-600" asChild>
+                                            <Link href={`/dashboard/maintenance/new?unitId=${task.unit_id}`}>
+                                                <AlertTriangle className="h-4 w-4" />
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                        {tasks.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                                    No hay tareas pendientes.
+                                </TableCell>
+                            </TableRow>
                         )}
-                    </CardContent>
-                    <CardFooter className="flex-col gap-2">
-                        {task.status !== 'completed' && (
-                            <>
-                                <div className="flex gap-2 w-full">
-                                    <form action={async (formData) => {
-                                        await assignTaskAction(formData);
-                                    }} className="flex-1 flex gap-2">
-                                        <input type="hidden" name="taskId" value={task.id} />
-                                        <select
-                                            name="userId"
-                                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors"
-                                            defaultValue={task.assigned_to || ""}
-                                        >
-                                            <option value="">Asignar a...</option>
-                                            {staffMembers?.map(staff => (
-                                                <option key={staff.id} value={staff.id}>{staff.full_name}</option>
-                                            ))}
-                                        </select>
-                                        <Button type="submit" size="sm" variant="outline">OK</Button>
-                                    </form>
-                                </div>
-                                <div className="flex gap-2 w-full">
-                                    <Button
-                                        className="flex-1 bg-green-600 hover:bg-green-700"
-                                        onClick={() => handleComplete(task.id, task.unit_id)}
-                                        disabled={loadingId === task.id}
-                                    >
-                                        {loadingId === task.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                                        Start
-                                    </Button>
-                                    <Button variant="destructive" size="icon" asChild>
-                                        <a href={`/dashboard/maintenance/new?unitId=${task.unit_id}`}>
-                                            <span className="sr-only">Reportar Problema</span>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-alert-triangle"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
-                                        </a>
-                                    </Button>
-                                </div>
-                            </>
-                        )}
-                    </CardFooter>
-                </Card>
-            ))}
-            {tasks.length === 0 && (
-                <div className="col-span-full text-center py-12 text-muted-foreground">
-                    No hay tareas pendientes.
-                </div>
-            )}
-        </div>
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
     );
 }

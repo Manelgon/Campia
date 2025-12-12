@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { createBookingAction, getAvailableUnitsAction } from "../actions";
+import { createBookingAction, getAvailableUnitsAction, calculatePriceAction } from "../actions";
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -17,8 +17,12 @@ export function BookingForm({ units: initialUnits, guests }: { units: any[], gue
 
     // Availability State
     const [dates, setDates] = useState({ checkIn: "", checkOut: "" });
-    const [availableUnits, setAvailableUnits] = useState<any[]>(initialUnits); // Start with all, or empty? User wants strict check.
+    const [availableUnits, setAvailableUnits] = useState<any[]>(initialUnits);
     const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+
+    // Price Calculation
+    const [unitId, setUnitId] = useState("");
+    const [estimatedPrice, setEstimatedPrice] = useState<number | null>(null);
 
     // Disable unit select if no dates or checking
     const isUnitSelectDisabled = !dates.checkIn || !dates.checkOut || isCheckingAvailability || isLoading;
@@ -47,6 +51,20 @@ export function BookingForm({ units: initialUnits, guests }: { units: any[], gue
         const timeout = setTimeout(checkAvailability, 500); // Debounce
         return () => clearTimeout(timeout);
     }, [dates]);
+
+    useEffect(() => {
+        const updatePrice = async () => {
+            if (unitId && dates.checkIn && dates.checkOut) {
+                const res = await calculatePriceAction(unitId, dates.checkIn, dates.checkOut);
+                if (res.price !== undefined) {
+                    setEstimatedPrice(res.price);
+                }
+            } else {
+                setEstimatedPrice(null);
+            }
+        };
+        updatePrice();
+    }, [unitId, dates]);
 
     const handleSubmit = async (formData: FormData) => {
         if (isLoading) return; // Prevent double submission
@@ -120,6 +138,7 @@ export function BookingForm({ units: initialUnits, guests }: { units: any[], gue
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
                             required
                             disabled={isUnitSelectDisabled}
+                            onChange={(e) => setUnitId(e.target.value)}
                         >
                             <option value="">
                                 {(!dates.checkIn || !dates.checkOut) ? "Seleccione fechas primero..." :
@@ -137,6 +156,13 @@ export function BookingForm({ units: initialUnits, guests }: { units: any[], gue
                             <p className="text-xs text-red-500">No hay alojamientos disponibles para estas fechas.</p>
                         )}
                     </div>
+
+                    {estimatedPrice !== null && (
+                        <div className="bg-orange-50 p-4 rounded-lg border border-orange-100 flex items-center justify-between">
+                            <span className="text-orange-800 font-medium">Precio Estimado (Total)</span>
+                            <span className="text-2xl font-bold text-orange-600">€{estimatedPrice.toFixed(2)}</span>
+                        </div>
+                    )}
 
                     {error && (
                         <div className="text-sm text-red-500 font-medium">

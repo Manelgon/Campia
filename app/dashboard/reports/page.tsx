@@ -2,15 +2,29 @@ import { getRevenueStats, getOccupancyStats, getKPIs } from "./actions";
 import { RevenueChart, OccupancyChart } from "./charts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Euro, Users, Activity } from "lucide-react";
+import { DateRangeFilter, DateRange } from "./date-range-filter";
 
-export default async function ReportsPage() {
-    const revenueData = await getRevenueStats();
-    const occupancyData = await getOccupancyStats();
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
+    const { range } = await searchParams;
+    const currentRange = (range as DateRange) || "month";
+
+    const revenueData = await getRevenueStats(currentRange);
+    const occupancyData = await getOccupancyStats(currentRange);
     const kpis = await getKPIs();
+
+    const titles = {
+        today: { revenue: "Ingresos de Hoy", occupancy: "Ocupación de Hoy" },
+        week: { revenue: "Ingresos Semanales", occupancy: "Ocupación Semanal" },
+        month: { revenue: "Ingresos Mensuales", occupancy: "Ocupación Mensual" },
+        year: { revenue: "Ingresos Anuales", occupancy: "Ocupación Anual" },
+    }[currentRange];
 
     return (
         <div className="space-y-6">
-            <h2 className="text-2xl font-bold tracking-tight">Reportes y Analytics</h2>
+            <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold tracking-tight">Reportes y Analytics</h2>
+                <DateRangeFilter />
+            </div>
 
             {/* KPI Cards */}
             <div className="grid gap-4 md:grid-cols-3">
@@ -20,8 +34,8 @@ export default async function ReportsPage() {
                         <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{kpis.checkedInCount}</div>
-                        <p className="text-xs text-muted-foreground">Reservas activas hoy</p>
+                        <div className="text-2xl font-bold">{kpis.occupiedCount}</div>
+                        <p className="text-xs text-muted-foreground">Unidades ocupadas hoy</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -49,7 +63,7 @@ export default async function ReportsPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 <Card className="col-span-4">
                     <CardHeader>
-                        <CardTitle>Ingresos Mensuales</CardTitle>
+                        <CardTitle>{titles?.revenue || "Ingresos"}</CardTitle>
                     </CardHeader>
                     <CardContent className="pl-2">
                         <RevenueChart data={revenueData} />
@@ -57,7 +71,7 @@ export default async function ReportsPage() {
                 </Card>
                 <Card className="col-span-3">
                     <CardHeader>
-                        <CardTitle>Ocupación (Últimos 30 días)</CardTitle>
+                        <CardTitle>{titles?.occupancy || "Ocupación"}</CardTitle>
                     </CardHeader>
                     <CardContent className="pl-2">
                         <OccupancyChart data={occupancyData} />

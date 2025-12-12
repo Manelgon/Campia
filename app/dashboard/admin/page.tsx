@@ -24,6 +24,15 @@ export default function AdminPage() {
                         <Link href="/dashboard/admin/settings" className="text-blue-600 hover:underline">Ir a Configuración &rarr;</Link>
                     </CardContent>
                 </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Gestión de Tarifas</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground mb-4">Precios variables y revenue management.</p>
+                        <Link href="/dashboard/admin/rates" className="text-blue-600 hover:underline">Ir a Tarifas &rarr;</Link>
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );

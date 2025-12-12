@@ -65,14 +65,30 @@ export const createUserAction = async (formData: FormData) => {
 export const updatePropertyAction = async (formData: FormData) => {
     const name = formData.get("name") as string;
     const address = formData.get("address") as string;
-    const propertyId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"; // Hardcoded for MVP
+    const phone = formData.get("phone") as string;
+    const email = formData.get("email") as string;
+    const website_url = formData.get("website_url") as string;
 
-    const supabase = await createClient(); // Use regular client, relying on RLS/Policies for admin
+    // Logic to get dynamic property ID
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "No autenticado" };
+
+    const { data: profile } = await supabase.from("profiles").select("property_id").eq("id", user.id).single();
+
+    if (!profile?.property_id) return { error: "No tienes una propiedad asignada" };
 
     const { error } = await supabase
         .from("properties")
-        .update({ name, address })
-        .eq("id", propertyId);
+        .update({
+            name,
+            address,
+            phone,
+            email,
+            website_url
+        })
+        .eq("id", profile.property_id);
 
     if (error) return { error: error.message };
 

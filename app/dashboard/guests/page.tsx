@@ -1,76 +1,74 @@
 import { createClient } from "@/utils/supabase/server";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import Link from "next/link";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { format } from "date-fns";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { TablePagination, TableToolbar } from "@/components/dashboard/table-controls";
+import { GuestTable } from "./guest-table";
 
-import { AddGuestDialog } from "@/components/dashboard/guests/add-guest-dialog";
-
-export default async function GuestsPage() {
+export default async function GuestsPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
     const supabase = await createClient();
-    const { data: guests } = await supabase
+    const params = await searchParams;
+
+    // Params
+    const q = (params.q as string) || "";
+    const limit = params.limit === "all" ? 1000 : parseInt((params.limit as string) || "10", 10);
+    const sort = (params.sort as string) || "created_at";
+    const order = (params.order as string) || "desc";
+    const page = parseInt((params.page as string) || "1", 10);
+
+    // Calc Range
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    let query = supabase
         .from("guests")
-        .select("*")
-        .order("full_name", { ascending: true });
+        .select("*", { count: "exact" });
+
+    // Search Filter
+    if (q) {
+        query = query.or(`full_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%,document_id.ilike.%${q}%`);
+    }
+
+    // Sort
+    query = query.order(sort, { ascending: order === "asc" });
+
+    // Pagination
+    query = query.range(from, to);
+
+    const { data: guests, count } = await query;
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold tracking-tight">Huéspedes / Clientes</h2>
-                <AddGuestDialog />
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-2xl font-bold tracking-tight">Clientes</h2>
+                    <p className="text-muted-foreground">Gestión de huéspedes y datos de contacto.</p>
+                </div>
+                <Button asChild>
+                    <Link href="/dashboard/guests/new">
+                        <Plus className="mr-2 h-4 w-4" /> Nuevo Cliente
+                    </Link>
+                </Button>
             </div>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Base de Datos de Clientes</CardTitle>
+                    <CardTitle>Listado de Clientes ({count})</CardTitle>
+                    <CardDescription>
+                        {q ? `Resultados de búsqueda: "${q}"` : "Base de datos de huéspedes."}
+                    </CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Nombre Completo</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Teléfono</TableHead>
-                                <TableHead>DNI/Pasaporte</TableHead>
-                                <TableHead>Nacionalidad</TableHead>
-                                <TableHead>Regisrado El</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {guests?.map((guest) => (
-                                <TableRow key={guest.id}>
-                                    <TableCell className="font-medium">
-                                        <Link href={`/dashboard/guests/${guest.id}`} className="hover:underline text-primary">
-                                            {guest.full_name}
-                                        </Link>
-                                    </TableCell>
-                                    <TableCell>{guest.email || "-"}</TableCell>
-                                    <TableCell>{guest.phone || "-"}</TableCell>
-                                    <TableCell>{guest.document_id || "-"}</TableCell>
-                                    <TableCell>{guest.nationality || "-"}</TableCell>
-                                    <TableCell>
-                                        {guest.created_at
-                                            ? format(new Date(guest.created_at), "dd/MM/yyyy")
-                                            : "-"}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {guests?.length === 0 && (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="text-center h-24">
-                                        No hay huéspedes registrados.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                <CardContent className="space-y-4">
+                    <TableToolbar searchPlaceholder="Buscar cliente (nombre, email, tel...)" />
+
+                    <GuestTable guests={guests || []} />
+
+                    <TablePagination total={count || 0} limit={limit} page={page} />
                 </CardContent>
             </Card>
         </div>

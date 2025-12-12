@@ -27,3 +27,22 @@ export const createClient = async () => {
         }
     )
 }
+
+export const createAdminClient = async () => {
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+
+    if (!serviceRoleKey) {
+        throw new Error("SUPABASE_SERVICE_ROLE_KEY (o SUPABASE_SERVICE_KEY) no está definido en las variables de entorno. Es necesario para acciones administrativas.");
+    }
+
+    return createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        serviceRoleKey,
+        {
+            cookies: {
+                getAll() { return [] },
+                setAll() { }
+            }
+        }
+    )
+}

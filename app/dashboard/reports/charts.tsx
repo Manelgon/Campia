@@ -6,8 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export function RevenueChart({ data }: { data: any[] }) {
     return (
         <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={data}>
-                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+            <BarChart data={data} margin={{ bottom: 20 }}>
+                <XAxis
+                    dataKey="name"
+                    stroke="#888888"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                />
                 <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `€${value}`} />
                 <Tooltip
                     cursor={{ fill: 'transparent' }}
@@ -34,9 +44,19 @@ export function RevenueChart({ data }: { data: any[] }) {
 export function OccupancyChart({ data }: { data: any[] }) {
     return (
         <ResponsiveContainer width="100%" height={350}>
-            <LineChart data={data}>
+            <LineChart data={data} margin={{ bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                <XAxis
+                    dataKey="name"
+                    stroke="#888888"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                />
                 <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}%`} />
                 <Tooltip />
                 <Line type="monotone" dataKey="occupancy" stroke="#8884d8" strokeWidth={2} activeDot={{ r: 8 }} />

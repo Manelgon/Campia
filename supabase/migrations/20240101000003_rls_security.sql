@@ -33,53 +33,65 @@ drop policy if exists "Enable update for authenticated users" on public.housekee
 -- 4. STRICT POLICIES
 
 -- PROPERTIES: Read-only your own property
+drop policy if exists "Read own property" on public.properties;
 create policy "Read own property" on public.properties
   for select using (id = get_auth_property_id());
 
 -- PROFILES: Read profiles in same property
 -- Allow reading own profile unconditionally (breaks recursion for property_id lookup)
+drop policy if exists "Read own profile" on public.profiles;
 create policy "Read own profile" on public.profiles
   for select using (id = auth.uid());
 
+drop policy if exists "Read same property profiles" on public.profiles;
 create policy "Read same property profiles" on public.profiles
   for select using (property_id = get_auth_property_id());
 
+drop policy if exists "Update own profile" on public.profiles;
 create policy "Update own profile" on public.profiles
   for update using (id = auth.uid());
 
 -- UNITS
+drop policy if exists "Units isolation" on public.units;
 create policy "Units isolation" on public.units
   for all using (property_id = get_auth_property_id());
 
 -- GUESTS
+drop policy if exists "Guests isolation" on public.guests;
 create policy "Guests isolation" on public.guests
   for all using (property_id = get_auth_property_id());
 
 -- BOOKINGS
+drop policy if exists "Bookings isolation" on public.bookings;
 create policy "Bookings isolation" on public.bookings
   for all using (property_id = get_auth_property_id());
 
 -- TICKETS
+drop policy if exists "Tickets isolation" on public.tickets;
 create policy "Tickets isolation" on public.tickets
   for all using (property_id = get_auth_property_id());
 
 -- EXTRAS
+drop policy if exists "Extras isolation" on public.extras;
 create policy "Extras isolation" on public.extras
   for all using (property_id = get_auth_property_id());
 
 -- BOOKING_EXTRAS (via booking)
+drop policy if exists "Booking Extras isolation" on public.booking_extras;
 create policy "Booking Extras isolation" on public.booking_extras
   for all using (
     booking_id in (select id from public.bookings where property_id = get_auth_property_id())
   );
 
 -- INVOICES (via booking)
+drop policy if exists "Invoices isolation" on public.invoices;
 create policy "Invoices isolation" on public.invoices
   for all using (
     booking_id in (select id from public.bookings where property_id = get_auth_property_id())
   );
 
 -- PAYMENTS (via invoice -> booking)
+drop policy if exists "Payments isolation" on public.payments;
 create policy "Payments isolation" on public.payments
   for all using (
     invoice_id in (
@@ -90,6 +102,7 @@ create policy "Payments isolation" on public.payments
   );
 
 -- HOUSEKEEPING_TASKS (via unit)
+drop policy if exists "Housekeeping isolation" on public.housekeeping_tasks;
 create policy "Housekeeping isolation" on public.housekeeping_tasks
   for all using (
     unit_id in (select id from public.units where property_id = get_auth_property_id())

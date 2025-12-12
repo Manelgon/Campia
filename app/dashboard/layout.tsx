@@ -20,6 +20,14 @@ export default async function DashboardLayout({
         redirect("/login");
     }
 
+    // Role Check: If guest, send to Guest Portal
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+    if (profile?.role === "guest" || user.user_metadata?.role === 'guest') {
+        redirect("/guest");
+    }
+
+    // ... rest of layout
+
     return (
         <AuthProvider>
             <div className="flex h-screen overflow-hidden bg-slate-50">

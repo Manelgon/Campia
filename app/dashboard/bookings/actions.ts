@@ -3,6 +3,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { createInvoiceAction } from "../financials/actions";
+import { logActivity } from "@/utils/logging";
 
 export const createBookingAction = async (formData: FormData) => {
     const propertyId = formData.get("propertyId") as string;
@@ -24,7 +26,19 @@ export const createBookingAction = async (formData: FormData) => {
         return { error: "Tu usuario no está vinculado a ninguna propiedad." };
     }
 
-    const { error } = await supabase.from("bookings").insert({
+    // [New] Calculate dynamic total price using the database function
+    const { data: totalPrice, error: calcError } = await supabase.rpc("calculate_booking_total", {
+        p_unit_id: unitId,
+        p_check_in: checkIn,
+        p_check_out: checkOut
+    });
+
+    if (calcError) {
+        console.error("Error calculating dynamic price:", calcError);
+        return { error: "Error calculando el precio de la estancia" };
+    }
+
+    const { data: newBooking, error } = await supabase.from("bookings").insert({
         property_id: profile.property_id,
         unit_id: unitId,
         guest_id: guestId,
@@ -32,11 +46,26 @@ export const createBookingAction = async (formData: FormData) => {
         check_out_date: checkOut,
         guests_count: parseInt(guestsCount),
         status: "confirmed",
-    });
+        total_amount: totalPrice || 0,
+    }).select("id").single();
 
     if (error) {
         return { error: error.message };
     }
+
+    // Log Activity (Rich Format)
+    // Fetch guest name for the log
+    const { data: guestData } = await supabase.from("guests").select("full_name").eq("id", guestId).single();
+    const guestName = guestData?.full_name || "Invitado desconocido";
+    const shortId = (newBooking as any)?.id?.slice(0, 8) || "N/A";
+
+    await logActivity(supabase, {
+        propertyId: profile.property_id,
+        userId: user.id,
+        type: "booking-created",
+        description: `Nueva reserva creada para #${shortId}- ${guestName}`,
+        entityId: (newBooking as any)?.id
+    });
 
     revalidatePath("/dashboard/bookings");
     return redirect("/dashboard/bookings");
@@ -71,6 +100,35 @@ export const checkInAction = async (bookingId: string) => {
             .from("units")
             .update({ status: "occupied" })
             .eq("id", booking.unit_id);
+    }
+
+    // 4. Ensure Invoice Creation
+    const { data: existingInvoices } = await supabase
+        .from("invoices")
+        .select("id")
+        .eq("booking_id", bookingId);
+
+    if (!existingInvoices || existingInvoices.length === 0) {
+        await createInvoiceAction(bookingId);
+    }
+
+    // Get user and booking details for logging
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user && booking.unit_id) {
+        const { data: profile } = await supabase.from("profiles").select("property_id").eq("id", user.id).single();
+        const { data: bookingDetails } = await supabase.from("bookings").select(`guests(full_name), units(name)`).eq("id", bookingId).single();
+
+        if (profile?.property_id && bookingDetails) {
+            const guestName = (bookingDetails.guests as any)?.full_name || "Desconocido";
+            const shortId = bookingId.slice(0, 8);
+            await logActivity(supabase, {
+                propertyId: profile.property_id,
+                userId: user.id,
+                type: "check-in",
+                description: `Check-in realizado para reserva #${shortId}- ${guestName}`,
+                entityId: bookingId
+            });
+        }
     }
 
     revalidatePath("/dashboard/bookings");
@@ -114,6 +172,40 @@ export const checkOutAction = async (bookingId: string) => {
         await supabase.from("guests").update({ user_id: null }).eq("id", booking.guest_id);
     }
 
+    // Log Activity
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+        const { data: profile } = await supabase.from("profiles").select("property_id").eq("id", user.id).single();
+        const { data: bookingDetails } = await supabase.from("bookings").select(`guests(full_name), units(name)`).eq("id", bookingId).single();
+
+        if (profile?.property_id && bookingDetails) {
+            const guestName = (bookingDetails.guests as any)?.full_name || "Desconocido";
+            const shortId = bookingId.slice(0, 8);
+
+            await logActivity(supabase, {
+                propertyId: profile.property_id,
+                userId: user.id,
+                type: "check-out",
+                description: `Check-out realizado para reserva #${shortId}- ${guestName}`,
+                entityId: bookingId
+            });
+
+            // Log Automatic Cleaning Task Creation (triggered by DB)
+            // Fetch Unit Type
+            const { data: u } = await supabase.from("units").select("type").eq("id", booking.unit_id).single();
+            const uType = u?.type || "General";
+            const uName = (bookingDetails.units as any)?.name || "Unidad";
+
+            await logActivity(supabase, {
+                propertyId: profile.property_id,
+                userId: user.id,
+                type: "housekeeping-created",
+                description: `Limpieza - ${uName} - ${uType} - ALTA`, // Auto task is always high priority
+                entityId: booking.unit_id // or better, find the task ID? It's hard to get the trigger-created ID. UnitID is a proxy.
+            });
+        }
+    }
+
     revalidatePath("/dashboard/bookings");
     revalidatePath("/dashboard/units");
 };
@@ -154,4 +246,17 @@ export const getAvailableUnitsAction = async (checkIn: string, checkOut: string)
 
     if (error) return { error: error.message };
     return { units };
+};
+
+export const calculatePriceAction = async (unitId: string, checkIn: string, checkOut: string) => {
+    const supabase = await createClient();
+
+    const { data: price, error } = await supabase.rpc("calculate_booking_total", {
+        p_unit_id: unitId,
+        p_check_in: checkIn,
+        p_check_out: checkOut
+    });
+
+    if (error) return { error: error.message };
+    return { price };
 };

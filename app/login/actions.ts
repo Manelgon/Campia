@@ -23,6 +23,32 @@ export const signInAction = async (formData: FormData) => {
         return redirect(nextUrl);
     }
 
+    // Smart redirect based on role
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+
+    if (authUser) {
+        console.log("User found:", authUser.id);
+
+        // Try fetching profile
+        const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", authUser.id)
+            .single();
+
+        if (profileError) {
+            console.error("Error fetching profile for redirect:", profileError);
+        }
+
+        console.log("Profile Role:", profile?.role);
+
+        if (profile?.role === "guest" || authUser.user_metadata?.role === 'guest') {
+            console.log("Redirecting to /guest");
+            return redirect("/guest");
+        }
+    }
+
+    console.log("Redirecting to /dashboard");
     return redirect("/dashboard");
 };
 

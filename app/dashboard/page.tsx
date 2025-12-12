@@ -1,39 +1,95 @@
+import { createClient } from "@/utils/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarDays, Home, Wrench, Users, DollarSign } from "lucide-react";
+import { getOccupancyStats } from "./reports/actions";
+import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { OccupancyChart } from "@/components/dashboard/occupancy-chart";
 
-// Placeholder stats - in real app fetch from DB
-const stats = [
-    {
-        title: "Ocupación Actual",
-        value: "75%",
-        description: "45/60 Unidades",
-        icon: Home,
-        color: "text-blue-600",
-    },
-    {
-        title: "Llegadas hoy",
-        value: "5",
-        description: "3 Check-ins pendientes",
-        icon: CalendarDays,
-        color: "text-green-600",
-    },
-    {
-        title: "Ingresos (Mes)",
-        value: "€12,450",
-        description: "+15% vs mes anterior",
-        icon: DollarSign,
-        color: "text-amber-600",
-    },
-    {
-        title: "Incidencias",
-        value: "3",
-        description: "1 Crítica",
-        icon: Wrench,
-        color: "text-red-600",
-    },
-];
+export default async function DashboardPage() {
+    const supabase = await createClient();
+    const today = new Date().toISOString().split('T')[0];
+    const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
 
-export default function DashboardPage() {
+    // 1. Occupancy
+    const { count: totalUnits } = await supabase.from("units").select("*", { count: 'exact', head: true });
+    const { count: occupiedUnits } = await supabase.from("units").select("*", { count: 'exact', head: true }).eq("status", "occupied");
+    const occupancyRate = totalUnits ? Math.round(((occupiedUnits || 0) / totalUnits) * 100) : 0;
+
+    // 2. Arrivals Today
+    const { count: arrivalsToday } = await supabase
+        .from("bookings")
+        .select("*", { count: 'exact', head: true })
+        .eq("check_in_date", today)
+        .eq("status", "confirmed");
+
+    // 3. Revenue (Month)
+    // Supabase sum requires rpc or loading data. Loading data for monthly sum might be heavy but OK for MVP.
+    const { data: monthPayments } = await supabase
+        .from("payments")
+        .select("amount")
+        .gte("created_at", firstDayOfMonth)
+        .eq("status", "completed");
+
+    const monthRevenue = monthPayments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+
+    // 4. Issues (Open Tickets)
+    const { count: openTickets } = await supabase
+        .from("tickets")
+        .select("*", { count: 'exact', head: true })
+        .eq("status", "open");
+
+    // 5. Activity Logs (Server Fetch)
+    // "Solo debe de mostrar los logs de 24h no mas"
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: activityLogs } = await supabase
+        .from("activity_logs")
+        .select("*")
+        .gte("created_at", oneDayAgo)
+        .order("created_at", { ascending: false });
+
+    // 6. Weekly Occupancy for Chart
+    const weeklyOccupancy = await getOccupancyStats("week");
+
+    // Transform for chart (the helper returns {name, occupancy, ...} but chart expects {dia, total_reservas})
+    // Actually getOccupancyStats returns {name, occupied, total...}. Chart expects {dia, total_reservas}. 
+    // Adapting data:
+    const chartData = weeklyOccupancy.map(d => ({
+        dia: d.name,
+        total_reservas: d.occupied
+    }));
+
+    const stats = [
+        {
+            title: "Ocupación Actual",
+            value: `${occupancyRate}%`,
+            description: `${occupiedUnits}/${totalUnits} Unidades`,
+            icon: Home,
+            color: "text-blue-600",
+        },
+        {
+            title: "Llegadas hoy",
+            value: arrivalsToday?.toString() || "0",
+            description: "Check-ins pendientes",
+            icon: CalendarDays,
+            color: "text-green-600",
+        },
+        {
+            title: "Ingresos (Mes)",
+            value: `€${monthRevenue.toLocaleString()}`,
+            description: "Facturación mensual",
+            icon: DollarSign,
+            color: "text-amber-600",
+        },
+        {
+            title: "Incidencias",
+            value: openTickets?.toString() || "0",
+            description: "Abiertas",
+            icon: Wrench,
+            color: "text-red-600",
+        },
+    ];
+
     return (
         <div className="space-y-6">
             <div>
@@ -64,39 +120,12 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <Card className="col-span-4">
-                    <CardHeader>
-                        <CardTitle>Ocupación Semanal</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pl-2">
-                        <div className="h-[200px] flex items-center justify-center text-muted-foreground bg-slate-50 rounded-md border border-dashed">
-                            Gráfico de Ocupación (Placeholder)
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="col-span-3">
-                    <CardHeader>
-                        <CardTitle>Actividad Reciente</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            <div className="flex items-center">
-                                <div className="ml-4 space-y-1">
-                                    <p className="text-sm font-medium leading-none">Nueva Reserva</p>
-                                    <p className="text-sm text-muted-foreground">Juan Pérez - Parcela 101</p>
-                                </div>
-                                <div className="ml-auto font-medium text-sm text-muted-foreground">Hace 2m</div>
-                            </div>
-                            <div className="flex items-center">
-                                <div className="ml-4 space-y-1">
-                                    <p className="text-sm font-medium leading-none">Check-out completado</p>
-                                    <p className="text-sm text-muted-foreground">Familia García - Bungalow A1</p>
-                                </div>
-                                <div className="ml-auto font-medium text-sm text-muted-foreground">Hace 15m</div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                <div className="col-span-4">
+                    <OccupancyChart data={chartData} />
+                </div>
+                <div className="col-span-3">
+                    <RecentActivity initialLogs={activityLogs || []} />
+                </div>
             </div>
         </div>
     );
