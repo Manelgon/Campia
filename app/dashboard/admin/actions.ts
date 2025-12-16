@@ -9,9 +9,33 @@ export const createUserAction = async (formData: FormData) => {
     const password = formData.get("password") as string;
     const fullName = formData.get("fullName") as string;
     const role = formData.get("role") as string;
-    const propertyId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"; // Hardcoded for MVP
 
-    const supabaseAdmin = createAdminClient();
+    // Get the current admin user's property
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { error: "No autenticado" };
+    }
+
+    const { data: adminProfile } = await supabase
+        .from("profiles")
+        .select("property_id, role")
+        .eq("id", user.id)
+        .single();
+
+    if (!adminProfile?.property_id) {
+        return { error: "No tienes una propiedad asignada" };
+    }
+
+    // Only admins and superadmins can create users
+    if (adminProfile.role !== "admin" && adminProfile.role !== "superadmin") {
+        return { error: "No tienes permisos para crear usuarios" };
+    }
+
+    const propertyId = adminProfile.property_id;
+
+    const supabaseAdmin = await createAdminClient();
 
     // 1. Create user in auth.users
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -29,14 +53,7 @@ export const createUserAction = async (formData: FormData) => {
         return { error: "Failed to create user" };
     }
 
-    // 2. We depend on the trigger for profile creation, OR we can manually update the role
-    // The trigger 'on_auth_user_created' inserts into public.profiles
-    // We need to wait a bit or just update the role now. 
-    // Let's update the role directly using admin client to be sure
-
-    // Wait a small moment for trigger? Or just upsert.
-    // Ideally, the trigger handles the insert. We just need to update the role since trigger sets default 'reception'.
-
+    // 2. Update/insert profile with the admin's property_id
     const { error: profileError } = await supabaseAdmin
         .from("profiles")
         .update({ role: role, property_id: propertyId })
@@ -95,3 +112,98 @@ export const updatePropertyAction = async (formData: FormData) => {
     revalidatePath("/dashboard/admin/settings");
     return { message: "Property updated successfully" };
 }
+
+export const updateUserAction = async (formData: FormData) => {
+    const userId = formData.get("userId") as string;
+    const fullName = formData.get("fullName") as string;
+    const role = formData.get("role") as string;
+
+    const supabaseAdmin = await createAdminClient();
+
+    // Update profile
+    const { error } = await supabaseAdmin
+        .from("profiles")
+        .update({
+            full_name: fullName,
+            role: role
+        })
+        .eq("id", userId);
+
+    if (error) return { error: error.message };
+
+    revalidatePath("/dashboard/admin/users");
+    return { message: "Usuario actualizado correctamente" };
+};
+
+export const deleteUserAction = async (userId: string) => {
+    const supabaseAdmin = await createAdminClient();
+
+    // 1. Delete from auth.users (this will cascade to profiles via trigger)
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+
+    if (authError) return { error: authError.message };
+
+    revalidatePath("/dashboard/admin/users");
+    return { message: "Usuario eliminado correctamente" };
+};
+
+export const toggleUserStatusAction = async (userId: string) => {
+    const supabaseAdmin = await createAdminClient();
+
+    // Get current status
+    const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("is_active")
+        .eq("id", userId)
+        .single();
+
+    const newStatus = profile?.is_active === false ? true : false;
+
+    // Update status
+    const { error } = await supabaseAdmin
+        .from("profiles")
+        .update({ is_active: newStatus })
+        .eq("id", userId);
+
+    if (error) return { error: error.message };
+
+    revalidatePath("/dashboard/admin/users");
+    return { message: newStatus ? "Usuario activado" : "Usuario desactivado" };
+};
+
+export const resetPasswordAction = async (userId: string, newPassword: string) => {
+    const supabaseAdmin = await createAdminClient();
+
+    // Update user password using admin client
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: newPassword
+    });
+
+    if (error) return { error: error.message };
+
+    revalidatePath("/dashboard/admin/users");
+    return { message: "Contraseña restablecida correctamente" };
+};
+
+export const changeEmailAction = async (userId: string, newEmail: string) => {
+    const supabaseAdmin = await createAdminClient();
+
+    // Update user email using admin client
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        email: newEmail,
+        email_confirm: true
+    });
+
+    if (authError) return { error: authError.message };
+
+    // Also update in profiles table
+    const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .update({ email: newEmail })
+        .eq("id", userId);
+
+    if (profileError) return { error: profileError.message };
+
+    revalidatePath("/dashboard/admin/users");
+    return { message: "Email actualizado correctamente" };
+};

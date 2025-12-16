@@ -1,83 +1,77 @@
-import { getRevenueStats, getOccupancyStats, getKPIs } from "./actions";
-import { RevenueChart, OccupancyChart } from "./charts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Euro, Users, Activity } from "lucide-react";
-import { DateRangeFilter, DateRange } from "./date-range-filter";
+"use client";
 
-export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
-    const { range } = await searchParams;
-    const currentRange = (range as DateRange) || "month";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MaintenanceReport } from "@/components/reports/maintenance-report";
+import { HousekeepingReport } from "@/components/reports/housekeeping-report";
+import { FinancialReport } from "@/components/reports/financial-report";
+import { OccupancyReport } from "@/components/reports/occupancy-report";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { addDays } from "date-fns";
+import { useState } from "react";
 
-    const revenueData = await getRevenueStats(currentRange);
-    const occupancyData = await getOccupancyStats(currentRange);
-    const kpis = await getKPIs();
+export default function ReportsPage() {
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const pathname = usePathname();
 
-    const titles = {
-        today: { revenue: "Ingresos de Hoy", occupancy: "Ocupación de Hoy" },
-        week: { revenue: "Ingresos Semanales", occupancy: "Ocupación Semanal" },
-        month: { revenue: "Ingresos Mensuales", occupancy: "Ocupación Mensual" },
-        year: { revenue: "Ingresos Anuales", occupancy: "Ocupación Anual" },
-    }[currentRange];
+    // Default tab
+    const currentTab = searchParams.get("tab") || "maintenance";
+
+    // Date Range State (default last 30 days)
+    const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+        from: addDays(new Date(), -30),
+        to: new Date(),
+    });
+
+    const handleTabChange = (val: string) => {
+        const params = new URLSearchParams(searchParams);
+        params.set("tab", val);
+        router.push(`${pathname}?${params.toString()}`);
+    };
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold tracking-tight">Reportes y Analytics</h2>
-                <DateRangeFilter />
+        <div className="flex flex-col gap-6 p-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Reportes y Estadísticas</h1>
+                    <p className="text-muted-foreground">Análisis detallado de rendimiento y operaciones.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <DateRangePicker
+                        date={dateRange}
+                        setDate={(range) => {
+                            if (range?.from) {
+                                setDateRange({ from: range.from, to: range.to || range.from });
+                            }
+                        }}
+                    />
+                </div>
             </div>
 
-            {/* KPI Cards */}
-            <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Ocupación Actual</CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{kpis.occupiedCount}</div>
-                        <p className="text-xs text-muted-foreground">Unidades ocupadas hoy</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
-                        <Euro className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">€{kpis.totalRevenue.toLocaleString()}</div>
-                        <p className="text-xs text-muted-foreground">Año fiscal actual</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Alertas Pendientes</CardTitle>
-                        <Activity className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{kpis.pendingTickets}</div>
-                        <p className="text-xs text-muted-foreground">Incidencias abiertas</p>
-                    </CardContent>
-                </Card>
-            </div>
+            <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:w-[600px]">
+                    <TabsTrigger value="maintenance">Mantenimiento</TabsTrigger>
+                    <TabsTrigger value="housekeeping">Limpieza</TabsTrigger>
+                    <TabsTrigger value="financial">Ingresos</TabsTrigger>
+                    <TabsTrigger value="occupancy">Ocupación</TabsTrigger>
+                </TabsList>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <Card className="col-span-4">
-                    <CardHeader>
-                        <CardTitle>{titles?.revenue || "Ingresos"}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pl-2">
-                        <RevenueChart data={revenueData} />
-                    </CardContent>
-                </Card>
-                <Card className="col-span-3">
-                    <CardHeader>
-                        <CardTitle>{titles?.occupancy || "Ocupación"}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pl-2">
-                        <OccupancyChart data={occupancyData} />
-                    </CardContent>
-                </Card>
-            </div>
+                <div className="mt-6">
+                    <TabsContent value="maintenance" className="space-y-4">
+                        <MaintenanceReport dateRange={dateRange} />
+                    </TabsContent>
+                    <TabsContent value="housekeeping" className="space-y-4">
+                        <HousekeepingReport dateRange={dateRange} />
+                    </TabsContent>
+                    <TabsContent value="financial" className="space-y-4">
+                        <FinancialReport dateRange={dateRange} />
+                    </TabsContent>
+                    <TabsContent value="occupancy" className="space-y-4">
+                        <OccupancyReport dateRange={dateRange} />
+                    </TabsContent>
+                </div>
+            </Tabs>
         </div>
     );
 }

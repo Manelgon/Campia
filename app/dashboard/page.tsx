@@ -1,9 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarDays, Home, Wrench, Users, DollarSign } from "lucide-react";
-import { getOccupancyStats } from "./reports/actions";
+import { getOccupancyStats, getArrivalsStats, getGuestsStats, getRevenueStats, getCleaningStats, getTicketStats } from "./reports/actions";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { OccupancyChart } from "@/components/dashboard/occupancy-chart";
+import { DashboardWidgets } from "@/components/dashboard/dashboard-widgets";
 
 export default async function DashboardPage() {
     const supabase = await createClient();
@@ -23,7 +23,6 @@ export default async function DashboardPage() {
         .eq("status", "confirmed");
 
     // 3. Revenue (Month)
-    // Supabase sum requires rpc or loading data. Loading data for monthly sum might be heavy but OK for MVP.
     const { data: monthPayments } = await supabase
         .from("payments")
         .select("amount")
@@ -38,54 +37,117 @@ export default async function DashboardPage() {
         .select("*", { count: 'exact', head: true })
         .eq("status", "open");
 
-    // 5. Activity Logs (Server Fetch)
-    // "Solo debe de mostrar los logs de 24h no mas"
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    // 5. Total Guests Staying Today
+    const { data: activeBookings } = await supabase
+        .from("bookings")
+        .select("guests_count")
+        .lte("check_in_date", today)
+        .gt("check_out_date", today)
+        .neq("status", "cancelled"); // Include confirmed/checked_in
 
+    const totalGuests = activeBookings?.reduce((sum, b) => sum + (b.guests_count || 0), 0) || 0;
+
+    // 6. Open Cleaning Tasks
+    const { count: openCleaning } = await supabase
+        .from("housekeeping_tasks")
+        .select("*", { count: 'exact', head: true })
+        .neq("status", "completed");
+
+    // 7. Activity Logs
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: activityLogs } = await supabase
         .from("activity_logs")
         .select("*")
         .gte("created_at", oneDayAgo)
         .order("created_at", { ascending: false });
 
-    // 6. Weekly Occupancy for Chart
+    // 8. Weekly Stats
     const weeklyOccupancy = await getOccupancyStats("week");
+    const weeklyArrivals = await getArrivalsStats("week");
+    const weeklyGuests = await getGuestsStats("week");
+    const weeklyRevenue = await getRevenueStats("week");
+    const weeklyCleaning = await getCleaningStats("week");
+    const weeklyTickets = await getTicketStats("week");
 
-    // Transform for chart (the helper returns {name, occupancy, ...} but chart expects {dia, total_reservas})
-    // Actually getOccupancyStats returns {name, occupied, total...}. Chart expects {dia, total_reservas}. 
-    // Adapting data:
-    const chartData = weeklyOccupancy.map(d => ({
+    // Transform for chart
+    const occupancyData = weeklyOccupancy.map(d => ({
         dia: d.name,
-        total_reservas: d.occupied
+        value: d.occupied
     }));
+
+    const arrivalsData = weeklyArrivals.map(d => ({
+        dia: d.name,
+        value: d.total
+    }));
+
+    const guestData = weeklyGuests.map(d => ({
+        dia: d.name,
+        value: d.total
+    }));
+
+    const revenueData = weeklyRevenue.map(d => ({
+        dia: d.name,
+        value: d.total
+    }));
+
+    const cleaningData = weeklyCleaning.map(d => ({
+        dia: d.name,
+        value: d.total
+    }));
+
+    const ticketData = weeklyTickets.map(d => ({
+        dia: d.name,
+        value: d.total
+    }));
+
 
     const stats = [
         {
+            id: "occupancy",
             title: "Ocupación Actual",
             value: `${occupancyRate}%`,
             description: `${occupiedUnits}/${totalUnits} Unidades`,
-            icon: Home,
+            iconName: "home" as const,
             color: "text-blue-600",
         },
         {
+            id: "arrivals",
             title: "Llegadas hoy",
             value: arrivalsToday?.toString() || "0",
             description: "Check-ins pendientes",
-            icon: CalendarDays,
+            iconName: "calendar" as const,
             color: "text-green-600",
         },
         {
+            id: "guests",
+            title: "Huéspedes Alojados",
+            value: totalGuests.toString(),
+            description: "Total personas (Hoy)",
+            iconName: "users" as const,
+            color: "text-indigo-600",
+        },
+        {
+            id: "cleaning",
+            title: "Limpiezas",
+            value: openCleaning?.toString() || "0",
+            description: "Tareas pendientes",
+            iconName: "brush" as const,
+            color: "text-pink-600",
+        },
+        {
+            id: "revenue",
             title: "Ingresos (Mes)",
             value: `€${monthRevenue.toLocaleString()}`,
             description: "Facturación mensual",
-            icon: DollarSign,
+            iconName: "dollar" as const,
             color: "text-amber-600",
         },
         {
+            id: "tickets",
             title: "Incidencias",
             value: openTickets?.toString() || "0",
             description: "Abiertas",
-            icon: Wrench,
+            iconName: "wrench" as const,
             color: "text-red-600",
         },
     ];
@@ -97,36 +159,17 @@ export default async function DashboardPage() {
                 <p className="text-muted-foreground">Bienvenido al sistema de gestión.</p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {stats.map((stat, index) => {
-                    const Icon = stat.icon;
-                    return (
-                        <Card key={index}>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">
-                                    {stat.title}
-                                </CardTitle>
-                                <Icon className={`h-4 w-4 ${stat.color}`} />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{stat.value}</div>
-                                <p className="text-xs text-muted-foreground">
-                                    {stat.description}
-                                </p>
-                            </CardContent>
-                        </Card>
-                    )
-                })}
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <div className="col-span-4">
-                    <OccupancyChart data={chartData} />
-                </div>
-                <div className="col-span-3">
-                    <RecentActivity initialLogs={activityLogs || []} />
-                </div>
-            </div>
+            <DashboardWidgets
+                stats={stats}
+                occupancyData={occupancyData}
+                arrivalsData={arrivalsData}
+                guestData={guestData}
+                revenueData={revenueData}
+                cleaningData={cleaningData}
+                ticketData={ticketData}
+            >
+                <RecentActivity initialLogs={activityLogs || []} />
+            </DashboardWidgets>
         </div>
     );
 }

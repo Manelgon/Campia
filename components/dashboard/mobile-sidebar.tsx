@@ -1,6 +1,6 @@
 "use client";
 
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "./sidebar"; // Reuse existing sidebar content
 import { Menu } from "lucide-react";
@@ -34,6 +34,7 @@ export function MobileSidebar() {
                 </Button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-64">
+                <SheetTitle className="sr-only">Menú de Navegación</SheetTitle>
                 <Sidebar />
             </SheetContent>
         </Sheet>

@@ -1,6 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SettingsForm } from "./settings-form";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 export default async function SettingsPage() {
     const supabase = await createClient();
@@ -29,7 +32,14 @@ export default async function SettingsPage() {
 
     return (
         <div className="space-y-6 max-w-2xl">
-            <h2 className="text-2xl font-bold tracking-tight">Configuración de Propiedad</h2>
+            <div className="flex items-center gap-4">
+                <Button variant="ghost" size="icon" asChild>
+                    <Link href="/dashboard/admin">
+                        <ArrowLeft className="h-4 w-4" />
+                    </Link>
+                </Button>
+                <h2 className="text-2xl font-bold tracking-tight">Configuración de Propiedad</h2>
+            </div>
 
             <Card>
                 <CardHeader>

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import {
     User,
     CalendarDays,
+    Wrench,
 } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 
@@ -19,6 +20,11 @@ const guestSidebarItems = [
         title: "Reservas",
         href: "/guest/bookings",
         icon: CalendarDays,
+    },
+    {
+        title: "Incidencias",
+        href: "/guest/tickets",
+        icon: Wrench,
     },
 ];
 

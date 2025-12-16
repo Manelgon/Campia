@@ -89,7 +89,7 @@ export function BookingTable({ bookings, isHistory }: { bookings: Booking[], isH
                 {bookings.map((booking) => (
                     <TableRow key={booking.id}>
                         <TableCell className="font-medium">
-                            <Link href={`/dashboard/bookings/${booking.id}`} className="hover:underline text-blue-600">
+                            <Link href={`/dashboard/bookings/${booking.id}`} className="hover:underline text-orange-600">
                                 <div>{booking.guest_name || "Desconocido"}</div>
                                 <div className="text-xs text-muted-foreground">{booking.guest_phone || "-"}</div>
                             </Link>

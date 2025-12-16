@@ -9,7 +9,7 @@ export const createInvoiceAction = async (bookingId: string, initialPayment?: { 
     console.log("createInvoiceAction called with ID:", bookingId);
 
     // 1. Fetch booking details with unit and extras
-    const { data: booking, error: fetchError } = await supabase
+    const { data: bookingData, error: fetchError } = await supabase
         .from("bookings")
         .select(`
             total_amount, 
@@ -21,6 +21,8 @@ export const createInvoiceAction = async (bookingId: string, initialPayment?: { 
         `)
         .eq("id", bookingId)
         .single();
+
+    const booking = bookingData as any;
 
     if (fetchError || !booking) {
         console.error("Error fetching booking details:", fetchError);
@@ -40,11 +42,19 @@ export const createInvoiceAction = async (bookingId: string, initialPayment?: { 
     const extrasTotal = extras?.reduce((acc, curr) => acc + (curr.total_price || 0), 0) || 0;
     const finalAmount = (booking.total_amount || 0) + extrasTotal;
 
+    // Get property_id from booking for direct reference
+    const { data: bookingProperty } = await supabase
+        .from("bookings")
+        .select("property_id")
+        .eq("id", bookingId)
+        .single();
+
     // 2. Create Invoice Header
     const { data: invoice, error: invoiceError } = await supabase
         .from("invoices")
         .insert({
             booking_id: bookingId,
+            property_id: bookingProperty?.property_id,
             total_amount: finalAmount,
             status: "pending",
             due_date: new Date().toISOString()
@@ -58,10 +68,13 @@ export const createInvoiceAction = async (bookingId: string, initialPayment?: { 
     const invoiceItems = [];
 
     // Item 1: Accommodation
+    const unitName = Array.isArray(booking.units) ? booking.units[0]?.name : booking.units?.name;
+    const unitType = Array.isArray(booking.units) ? booking.units[0]?.type : booking.units?.type;
+
     const nights = Math.max(1, Math.ceil((new Date(booking.check_out_date).getTime() - new Date(booking.check_in_date).getTime()) / (1000 * 60 * 60 * 24)));
     invoiceItems.push({
         invoice_id: invoice.id,
-        description: `Alojamiento: ${booking.units?.name} (${booking.units?.type}) - ${nights} noches`,
+        description: `Alojamiento: ${unitName} (${unitType}) - ${nights} noches`,
         quantity: 1, // Or nights? Usually price is total. Keeping qty 1 for line item of "Stay"
         unit_price: booking.total_amount || 0,
         total_price: booking.total_amount || 0
@@ -69,12 +82,16 @@ export const createInvoiceAction = async (bookingId: string, initialPayment?: { 
 
     // Item 2...N: Extras
     if (extras && extras.length > 0) {
-        extras.forEach(extra => {
+        extras.forEach(extraItem => {
+            const extra = extraItem as any;
+            const extraName = Array.isArray(extra.extras) ? extra.extras[0]?.name : extra.extras?.name;
+            const extraPrice = Array.isArray(extra.extras) ? extra.extras[0]?.price : extra.extras?.price;
+
             invoiceItems.push({
                 invoice_id: invoice.id,
-                description: extra.extras?.name || "Extra",
+                description: extraName || "Extra",
                 quantity: extra.quantity,
-                unit_price: extra.extras?.price || 0,
+                unit_price: extraPrice || 0,
                 total_price: extra.total_price || 0
             });
         });
@@ -107,6 +124,7 @@ export const createInvoiceAction = async (bookingId: string, initialPayment?: { 
             .from("payments")
             .insert({
                 invoice_id: invoice.id,
+                property_id: bookingProperty?.property_id,
                 amount: initialPayment.amount,
                 payment_method_id: initialPayment.methodId,
                 method: methodName, // Legacy text field required
@@ -148,11 +166,19 @@ export const recordPaymentAction = async (invoiceId: string, amount: number, met
 
     const methodName = methodData?.name || "Other";
 
+    // Get property_id from invoice
+    const { data: invoiceData } = await supabase
+        .from("invoices")
+        .select("property_id")
+        .eq("id", invoiceId)
+        .single();
+
     // 1. Record Payment
     const { error: paymentError } = await supabase
         .from("payments")
         .insert({
             invoice_id: invoiceId,
+            property_id: invoiceData?.property_id,
             amount: amount,
             payment_method_id: methodId,
             method: methodName, // Legacy text field required

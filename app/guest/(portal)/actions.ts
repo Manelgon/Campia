@@ -2,9 +2,10 @@
 
 import { createClient } from "@/utils/supabase/server";
 
-const WEBHOOK_URL = "https://ssllmwebhookn8nss.automatizatelo.com/webhook/8795ed42-4a2b-4d0e-8a09-82cd9ee8334f/chat";
+const WEBHOOK_URL = process.env.GUEST_MESSAGING_WEBHOOK_URL;
 
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { revalidatePath } from "next/cache";
 
 function getSupabaseAdmin() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -34,13 +35,17 @@ export async function sendMessageAction(formData: FormData) {
     const supabaseAdmin = getSupabaseAdmin();
 
     // Find Guest ID linked to User
-    const { data: guest } = await supabaseAdmin
+    const { data: guest, error: guestError } = await supabaseAdmin
         .from("guests")
         .select("*, properties(name)")
         .eq("user_id", user.id)
         .single();
 
-    if (!guest) return { error: "Perfil de huésped no encontrado" };
+    if (guestError) {
+        console.error("Guest Query Error:", guestError);
+    }
+
+    if (!guest) return { error: "Perfil de huésped no encontrado. (Error interno o Auth)" };
 
     // Find Active Booking with Priority:
     // 1. Status = 'checked_in' (Always top priority)
@@ -136,4 +141,73 @@ export async function sendMessageAction(formData: FormData) {
 
     // Return the message so the UI can display it
     return { success: true, message };
+}
+
+// Ticket Management Action
+export async function createTicketAction(formData: FormData) {
+    const supabase = await createClient(); // Use standard client for auth check
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "No autenticado" };
+
+    const title = formData.get("title") as string;
+    const description = formData.get("description") as string;
+    const photosJson = formData.get("photos") as string;
+
+    let photos: string[] = [];
+    if (photosJson) {
+        try {
+            photos = JSON.parse(photosJson);
+        } catch (e) {
+            console.error("Error parsing photos:", e);
+        }
+    }
+
+    if (!title || !description) return { error: "Título y descripción son obligatorios" };
+
+    const supabaseAdmin = getSupabaseAdmin(); // Admin for RLS bypass
+
+    // 1. Get Guest
+    const { data: guest } = await supabaseAdmin
+        .from("guests")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+
+    if (!guest) return { error: "Perfil de huésped no encontrado" };
+
+    // 2. STRICT CHECK: Get Active 'checked_in' Booking ONLY
+    const { data: activeBooking } = await supabaseAdmin
+        .from("bookings")
+        .select("property_id, unit_id")
+        .eq("guest_id", guest.id)
+        .eq("status", "checked_in")
+        .single();
+
+    if (!activeBooking) {
+        return { error: "Solo puedes crear incidencias si tienes un Check-in activo en el alojamiento." };
+    }
+
+    // 3. Create Ticket
+    const { error: insertError } = await supabaseAdmin
+        .from("tickets")
+        .insert({
+            title,
+            description,
+            property_id: activeBooking.property_id,
+            unit_id: activeBooking.unit_id,
+            reported_by: user.id, // Linking to Auth User ID as per schema
+            status: "open",
+            priority: "medium",
+            photos: photos // Add photos array
+        });
+
+    if (insertError) {
+        console.error("Error creating ticket:", insertError);
+        return { error: "Error al guardar la incidencia." };
+    }
+
+    // 4. Revalidate
+    revalidatePath("/guest/tickets");
+    return { success: true };
 }

@@ -7,7 +7,11 @@ import { createUserAction } from "../actions";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
-export function NewUserForm() {
+interface NewUserFormProps {
+    onSuccess?: () => void;
+}
+
+export function NewUserForm({ onSuccess }: NewUserFormProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -23,9 +27,13 @@ export function NewUserForm() {
             setError(res.error);
         } else if (res?.message) {
             setMessage(res.message);
-            // Optionally reset form
+            // Reset form
             const form = document.getElementById("new-user-form") as HTMLFormElement;
             form?.reset();
+            // Call onSuccess callback to close modal
+            if (onSuccess) {
+                setTimeout(() => onSuccess(), 500);
+            }
         }
         setIsLoading(false);
     };
@@ -54,10 +62,9 @@ export function NewUserForm() {
                     disabled={isLoading}
                 >
                     <option value="reception">Recepción</option>
-                    <option value="manager">Manager</option>
                     <option value="admin">Admin</option>
                     <option value="maintenance">Mantenimiento</option>
-                    <option value="cleaning">Limpieza</option>
+                    <option value="housekeeping">Limpieza</option>
                 </select>
             </div>
 

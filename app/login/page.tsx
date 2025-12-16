@@ -42,10 +42,14 @@ export default function LoginPage() {
                 const res = await signInAction(formData);
                 if (res?.error) {
                     setError(res.error);
+                } else if (res?.url) {
+                    // Manual redirect on client to avoid try/catch swallowing NEXT_REDIRECT
+                    window.location.href = res.url;
                 }
             }
         } catch (e) {
-            setError("An unexpected error occurred");
+            console.error(e);
+            setError("An unexpected error occurred. Check console.");
         } finally {
             setIsLoading(false);
         }

@@ -9,17 +9,24 @@ type DailyOccupancy = {
     total_reservas: number;
 }
 
-export function OccupancyChart({ data }: { data: DailyOccupancy[] }) {
+interface OccupancyChartProps {
+    data: any[];
+    title?: string;
+    color?: string;
+    dataKey?: string;
+}
+
+export function OccupancyChart({ data, title = "Ocupación Semanal", color = "#f97316", dataKey = "value" }: OccupancyChartProps) {
     return (
-        <Card>
+        <Card className="h-full flex flex-col">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-orange-500" />
-                    Ocupación Semanal
+                    <Users className="h-4 w-4" style={{ color }} />
+                    {title}
                 </CardTitle>
             </CardHeader>
-            <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
+            <CardContent className="flex-1 min-h-[350px]">
+                <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data}>
                         <XAxis
                             dataKey="dia"
@@ -40,8 +47,9 @@ export function OccupancyChart({ data }: { data: DailyOccupancy[] }) {
                             cursor={{ fill: 'transparent' }}
                         />
                         <Bar
-                            dataKey="total_reservas"
-                            fill="#f97316" // Orange-500
+                            dataKey={dataKey}
+                            name={title} // This sets the tooltip label!
+                            fill={color}
                             radius={[4, 4, 0, 0]}
                         />
                     </BarChart>

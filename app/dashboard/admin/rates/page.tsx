@@ -2,6 +2,9 @@ import { createClient } from "@/utils/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { RateForm } from "./rate-form";
 import { RateDeleteButton } from "./rate-delete-button";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 export default async function RatesPage() {
     const supabase = await createClient();
@@ -27,9 +30,16 @@ export default async function RatesPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight">Gestión de Tarifas</h2>
-                <p className="text-muted-foreground">Define precios variables por temporada, día o tipo de unidad.</p>
+            <div className="flex items-center gap-4">
+                <Button variant="ghost" size="icon" asChild>
+                    <Link href="/dashboard/admin">
+                        <ArrowLeft className="h-4 w-4" />
+                    </Link>
+                </Button>
+                <div>
+                    <h2 className="text-3xl font-bold tracking-tight">Gestión de Tarifas</h2>
+                    <p className="text-muted-foreground">Define precios variables por temporada, día o tipo de unidad.</p>
+                </div>
             </div>
 
             <div className="grid gap-6 md:grid-cols-3">

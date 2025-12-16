@@ -32,7 +32,7 @@ const getLogLink = (log: ActivityLog) => {
         return log.entity_id ? `/dashboard/bookings/${log.entity_id}` : "/dashboard/bookings";
     }
     if (log.type.includes("ticket") || log.type.includes("mantenimiento")) {
-        return "/dashboard/maintenance";
+        return log.entity_id ? `/dashboard/maintenance/${log.entity_id}` : "/dashboard/maintenance";
     }
     if (log.type.includes("housekeeping") || log.type.includes("limpieza")) {
         return "/dashboard/housekeeping";
@@ -67,15 +67,15 @@ export function RecentActivity({ initialLogs = [] }: { initialLogs?: ActivityLog
     }, []);
 
     return (
-        <Card>
+        <Card className="h-full flex flex-col">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <Activity className="h-4 w-4 text-orange-500" />
                     Actividad Reciente (24h)
                 </CardTitle>
             </CardHeader>
-            <CardContent>
-                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+            <CardContent className="flex-1 overflow-hidden">
+                <div className="space-y-4 h-[350px] overflow-y-auto pr-2">
                     {activities.length === 0 ? (
                         <p className="text-sm text-muted-foreground">No hay actividad reciente.</p>
                     ) : (
@@ -86,9 +86,21 @@ export function RecentActivity({ initialLogs = [] }: { initialLogs?: ActivityLog
                                 className={`flex flex-col border-b pb-2 last:border-0 last:pb-0 p-2 rounded-sm cursor-pointer block ${getLogStyle(log.type)}`}
                             >
                                 <span className="text-sm font-medium">{log.description}</span>
-                                <div className="flex justify-between text-xs text-muted-foreground mt-1 opacity-70">
-                                    <span className="capitalize">{log.type.replace("-", " ")}</span>
-                                    <span>{new Date(log.created_at).toLocaleTimeString()} {new Date(log.created_at).toLocaleDateString()}</span>
+                                <div className="flex flex-col gap-1 mt-1">
+                                    <div className="flex justify-between text-xs text-muted-foreground opacity-70">
+                                        <span className="capitalize font-semibold text-foreground/80">
+                                            {log.type.replace(/[-_]/g, " ")}
+                                        </span>
+                                        <span>{new Date(log.created_at).toLocaleTimeString()}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs text-muted-foreground">
+                                        {log.entity_id && (
+                                            <span className="font-mono bg-muted px-1 rounded">
+                                                ID: {log.entity_id.substring(0, 8)}.
+                                            </span>
+                                        )}
+                                        <span>{new Date(log.created_at).toLocaleDateString()}</span>
+                                    </div>
                                 </div>
                             </Link>
                         ))

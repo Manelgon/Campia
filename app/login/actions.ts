@@ -44,12 +44,12 @@ export const signInAction = async (formData: FormData) => {
 
         if (profile?.role === "guest" || authUser.user_metadata?.role === 'guest') {
             console.log("Redirecting to /guest");
-            return redirect("/guest");
+            return { success: true, url: "/guest" };
         }
     }
 
     console.log("Redirecting to /dashboard");
-    return redirect("/dashboard");
+    return { success: true, url: "/dashboard" };
 };
 
 export const signUpAction = async (formData: FormData) => {

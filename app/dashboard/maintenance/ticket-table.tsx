@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import Link from "next/link"; // If needed for detailed view
+import { TicketRowActions } from "@/components/dashboard/maintenance/ticket-row-actions";
 
 interface Ticket {
     id: string;
@@ -66,23 +67,6 @@ export function TicketTable({ tickets, staff }: { tickets: Ticket[], staff: any[
         </TableHead>
     );
 
-    const handleAssign = async (ticketId: string, userId: string) => {
-        const formData = new FormData();
-        formData.append("taskId", ticketId); // reuse logic from tasks or distinct action? assignTicketAction uses 'taskId' param name in my previous check.
-        formData.append("userId", userId);
-
-        try {
-            const res = await assignTicketAction(formData);
-            if (res.error) {
-                toast.error(res.error);
-            } else {
-                toast.success("Asignación actualizada");
-            }
-        } catch (e) {
-            toast.error("Error de conexión");
-        }
-    };
-
     if (tickets.length === 0) {
         return (
             <div className="text-center py-12 text-muted-foreground">
@@ -95,41 +79,58 @@ export function TicketTable({ tickets, staff }: { tickets: Ticket[], staff: any[
         <Table>
             <TableHeader>
                 <TableRow>
+                    <SortableHead column="id" label="ID" />
                     <SortableHead column="title" label="Incidencia" />
                     <SortableHead column="unit_name" label="Unidad" />
                     <SortableHead column="priority" label="Prioridad" />
                     <SortableHead column="assigned_to_name" label="Asignado a" />
                     <SortableHead column="created_at" label="Fecha" />
                     <SortableHead column="status" label="Estado" />
+                    <TableHead>Acciones</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {tickets.map((ticket) => (
                     <TableRow key={ticket.id}>
-                        <TableCell className="font-medium">{ticket.title}</TableCell>
-                        <TableCell>{ticket.unit_name || "General"}</TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                            <Link href={`/dashboard/maintenance/${ticket.id}`} className="hover:underline block w-full h-full">
+                                {ticket.id.substring(0, 8)}
+                            </Link>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                            <Link href={`/dashboard/maintenance/${ticket.id}`} className="hover:underline block w-full h-full">
+                                {ticket.title}
+                            </Link>
+                        </TableCell>
+                        <TableCell>
+                            <Link href={`/dashboard/maintenance/${ticket.id}`} className="hover:underline block w-full h-full">
+                                {ticket.unit_name || "General"}
+                            </Link>
+                        </TableCell>
                         <TableCell>
                             <Badge variant={ticket.priority === "critical" ? "destructive" : ticket.priority === "high" ? "destructive" : ticket.priority === "low" ? "outline" : "secondary"}>
-                                {ticket.priority === "critical" ? "CRÍTICA" : ticket.priority === "high" ? "ALTA" : ticket.priority === "low" ? "BAJA" : "NORMAL"}
+                                {ticket.priority === "critical" ? "CRÍTICA" : ticket.priority === "high" ? "ALTA" : ticket.priority === "low" ? "BAJA" : "MEDIA"}
                             </Badge>
                         </TableCell>
                         <TableCell>
-                            <select
-                                className="text-sm bg-transparent border-none focus:ring-0 cursor-pointer hover:underline"
-                                value={ticket.assigned_to || ""}
-                                onChange={(e) => handleAssign(ticket.id, e.target.value)}
-                            >
-                                <option value="">Sin Asignar</option>
-                                {staff.map(s => (
-                                    <option key={s.id} value={s.id}>{s.full_name}</option>
-                                ))}
-                            </select>
+                            <Link href={`/dashboard/maintenance/${ticket.id}`} className="hover:underline block w-full h-full">
+                                {ticket.assigned_to_name ? (
+                                    <span className="text-sm font-medium">{ticket.assigned_to_name}</span>
+                                ) : (
+                                    <span className="text-sm text-muted-foreground">Sin Asignar</span>
+                                )}
+                            </Link>
                         </TableCell>
                         <TableCell>
                             {format(new Date(ticket.created_at), "d MMM", { locale: es })}
                         </TableCell>
                         <TableCell>
-                            <span className="capitalize text-sm">{ticket.status}</span>
+                            <Badge variant={ticket.status === 'in_progress' ? "default" : ticket.status === 'resolved' ? "secondary" : "outline"} className={ticket.status === 'in_progress' ? "bg-blue-100 text-blue-800 hover:bg-blue-100" : ""}>
+                                {ticket.status === 'in_progress' ? 'En Curso' : ticket.status === 'open' ? 'Pendiente' : ticket.status === 'resolved' ? 'Completada' : 'Cerrada'}
+                            </Badge>
+                        </TableCell>
+                        <TableCell>
+                            <TicketRowActions ticket={ticket} staffMembers={staff} />
                         </TableCell>
                     </TableRow>
                 ))}
