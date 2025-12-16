@@ -97,46 +97,50 @@ export async function sendMessageAction(formData: FormData) {
     };
 
     // 5. Fire Webhook (Strict Await)
-    try {
-        const payload = {
-            guest: {
-                id: guest.id,
-                name: guest.full_name,
-                email: guest.email,
-                phone: guest.phone
-            },
-            booking: booking ? {
-                id: booking.id,
-                status: booking.status,
-                check_in_date: booking.check_in_date, // CORRECTED COLUMN NAME
-                check_out_date: booking.check_out_date, // CORRECTED COLUMN NAME
-                guests_count: booking.guests_count
-            } : null,
-            unit: booking?.units ? {
-                name: booking.units.name
-            } : null,
-            message: {
-                content: content,
-                type: type,
-                id: message.id,
-                timestamp: message.created_at
+    if (WEBHOOK_URL) {
+        try {
+            const payload = {
+                guest: {
+                    id: guest.id,
+                    name: guest.full_name,
+                    email: guest.email,
+                    phone: guest.phone
+                },
+                booking: booking ? {
+                    id: booking.id,
+                    status: booking.status,
+                    check_in_date: booking.check_in_date, // CORRECTED COLUMN NAME
+                    check_out_date: booking.check_out_date, // CORRECTED COLUMN NAME
+                    guests_count: booking.guests_count
+                } : null,
+                unit: booking?.units ? {
+                    name: booking.units.name
+                } : null,
+                message: {
+                    content: content,
+                    type: type,
+                    id: message.id,
+                    timestamp: message.created_at
+                }
+            };
+
+            const response = await fetch(WEBHOOK_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                console.error("Webhook returned error:", response.status, response.statusText);
+                // Optionally throw or return error
             }
-        };
 
-        const response = await fetch(WEBHOOK_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            console.error("Webhook returned error:", response.status, response.statusText);
-            // Optionally throw or return error
+        } catch (e) {
+            console.error("Webhook Error:", e);
+            return { error: "Error enviando al sistema de mensajería (Webhook Failed)" };
         }
-
-    } catch (e) {
-        console.error("Webhook Error:", e);
-        return { error: "Error enviando al sistema de mensajería (Webhook Failed)" };
+    } else {
+        console.warn("GUEST_MESSAGING_WEBHOOK_URL not configured, skipping webhook");
     }
 
     // Return the message so the UI can display it
