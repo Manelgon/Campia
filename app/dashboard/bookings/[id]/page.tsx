@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge"; // Fixed import
 import { format } from "date-fns";
+import { safeFormat, safeDate } from "@/utils/date-helpers";
 import { AddExtraForm } from "@/components/dashboard/add-extra-form";
 import { Button } from "@/components/ui/button"; // Still needed for other buttons?
 import { FileText } from "lucide-react";
@@ -55,7 +56,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
         const basePrice = booking.units.price_per_night;
 
         while (currentDate < endDate) {
-            const dateStr = format(currentDate, "yyyy-MM-dd"); // Match DB date format
+            const dateStr = safeFormat(currentDate, "yyyy-MM-dd"); // Match DB date format
+            if (dateStr === "-") break; // Safety break
             let dailyPrice = basePrice;
             let source = "Tarifa Base";
 
@@ -146,9 +148,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                             <span className="text-muted-foreground">Unidad:</span>
                             <span className="font-medium">{booking.units?.name} ({booking.units?.type})</span>
                             <span className="text-muted-foreground">Entrada:</span>
-                            <span>{format(new Date(booking.check_in_date), "dd MMM yyyy")}</span>
+                            <span>{safeFormat(booking.check_in_date, "dd MMM yyyy")}</span>
                             <span className="text-muted-foreground">Salida:</span>
-                            <span>{format(new Date(booking.check_out_date), "dd MMM yyyy")}</span>
+                            <span>{safeFormat(booking.check_out_date, "dd MMM yyyy")}</span>
                         </div>
                     </CardContent>
                 </Card>
@@ -204,8 +206,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                                     {/* Accommodation Breakdown */}
                                     {groupedBreakdown.map((item, idx) => {
                                         const dateRange = item.startDate === item.endDate
-                                            ? format(new Date(item.startDate), "dd/MM")
-                                            : `${format(new Date(item.startDate), "dd/MM")} - ${format(new Date(item.endDate), "dd/MM")}`;
+                                            ? safeFormat(item.startDate, "dd/MM")
+                                            : `${safeFormat(item.startDate, "dd/MM")} - ${safeFormat(item.endDate, "dd/MM")}`;
 
                                         return (
                                             <tr key={`acc-${idx}`}>
@@ -276,7 +278,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                                     <div key={p.id} className="flex justify-between items-center text-sm border p-2 rounded bg-white">
                                         <div className="flex flex-col">
                                             <span className="font-medium">Pago registrado</span>
-                                            <span className="text-xs text-muted-foreground">{format(new Date(p.created_at), "dd/MM/yyyy HH:mm")}</span>
+                                            <span className="text-xs text-muted-foreground">{safeFormat(p.created_at, "dd/MM/yyyy HH:mm")}</span>
                                         </div>
                                         <Badge variant="outline" className="ml-auto mr-4">
                                             {paymentMethods?.find(m => m.id === p.payment_method_id)?.name || 'General'}

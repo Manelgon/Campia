@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, startOfDay, startOfMonth, startOfYear, endOfDay } from "date-fns";
+import { safeFormat } from "@/utils/date-helpers";
 import { Euro, FileText, TrendingUp, AlertCircle, Calendar as CalendarIcon } from "lucide-react";
 import { RecordPaymentDialog } from "@/components/dashboard/financials/record-payment-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -232,7 +233,7 @@ export default async function FinancialsPage({
                                                         invoice.bookings?.guests?.full_name || "N/A"
                                                     )}
                                                 </TableCell>
-                                                <TableCell>{format(new Date(invoice.created_at), "dd/MM/yyyy")}</TableCell>
+                                                <TableCell>{safeFormat(invoice.created_at, "dd/MM/yyyy")}</TableCell>
                                                 <TableCell>
                                                     <Badge variant={invoice.status === 'paid' ? 'default' : invoice.status === 'cancelled' ? 'destructive' : 'secondary'}>
                                                         {invoice.status === 'paid' ? 'Pagada' : invoice.status === 'cancelled' ? 'Anulada' : 'Pendiente'}
