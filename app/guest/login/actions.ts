@@ -43,3 +43,9 @@ export const signInGuestAction = async (formData: FormData) => {
     await supabase.auth.signOut();
     return { error: "Acceso denegado: Solo para huéspedes." };
 };
+
+export const signOutGuestAction = async () => {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+    return redirect("/guest/login");
+};

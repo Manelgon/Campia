@@ -8,7 +8,7 @@ import {
     CalendarDays,
     Wrench,
 } from "lucide-react";
-import { SignOutButton } from "@/components/auth/sign-out-button";
+import { GuestSignOutButton } from "@/components/auth/guest-sign-out-button";
 
 const guestSidebarItems = [
     {
@@ -63,7 +63,7 @@ export function GuestSidebar() {
                 </nav>
             </div>
             <div className="border-t p-4">
-                <SignOutButton />
+                <GuestSignOutButton />
             </div>
         </div>
     );
