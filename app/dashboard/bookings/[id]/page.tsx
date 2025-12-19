@@ -172,7 +172,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                             {bookingExtras?.map(be => (
                                 <div key={be.id} className="flex justify-between text-sm border-b pb-1">
                                     <span>{be.extras?.name} (x{be.quantity})</span>
-                                    <span>€{be.total_price.toFixed(2)}</span>
+                                    <span>€{(be.total_price || 0).toFixed(2)}</span>
                                 </div>
                             ))}
                             {bookingExtras?.length === 0 && <p className="text-muted-foreground text-sm">No hay extras añadidos.</p>}
@@ -227,8 +227,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                                                     </span>
                                                 </td>
                                                 <td className="px-3 py-2 text-center">{item.count}</td>
-                                                <td className="px-3 py-2 text-right">€{item.price.toFixed(2)}</td>
-                                                <td className="px-3 py-2 text-right font-medium">€{item.total.toFixed(2)}</td>
+                                                <td className="px-3 py-2 text-right">€{(item.price || 0).toFixed(2)}</td>
+                                                <td className="px-3 py-2 text-right font-medium">€{(item.total || 0).toFixed(2)}</td>
                                             </tr>
                                         );
                                     })}
@@ -237,8 +237,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                                         <tr>
                                             <td className="px-3 py-2">Alojamiento (Base)</td>
                                             <td className="px-3 py-2 text-center">1</td>
-                                            <td className="px-3 py-2 text-right">€{totalBooking.toFixed(2)}</td>
-                                            <td className="px-3 py-2 text-right font-medium">€{totalBooking.toFixed(2)}</td>
+                                            <td className="px-3 py-2 text-right">€{(totalBooking || 0).toFixed(2)}</td>
+                                            <td className="px-3 py-2 text-right font-medium">€{(totalBooking || 0).toFixed(2)}</td>
                                         </tr>
                                     )}
 
@@ -250,15 +250,15 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                                                 <span className="text-xs text-muted-foreground block">Servicio Extra</span>
                                             </td>
                                             <td className="px-3 py-2 text-center">{be.quantity}</td>
-                                            <td className="px-3 py-2 text-right">€{(be.total_price / be.quantity).toFixed(2)}</td>
-                                            <td className="px-3 py-2 text-right font-medium">€{be.total_price.toFixed(2)}</td>
+                                            <td className="px-3 py-2 text-right">€{((be.total_price || 0) / (be.quantity || 1)).toFixed(2)}</td>
+                                            <td className="px-3 py-2 text-right font-medium">€{(be.total_price || 0).toFixed(2)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                                 <tfoot className="bg-slate-50 font-bold">
                                     <tr>
                                         <td colSpan={3} className="px-3 py-2 text-right">Total General</td>
-                                        <td className="px-3 py-2 text-right text-base">€{(totalBooking + totalExtras).toFixed(2)}</td>
+                                        <td className="px-3 py-2 text-right text-base">€{((totalBooking || 0) + (totalExtras || 0)).toFixed(2)}</td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -267,12 +267,12 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                             <>
                                 <div className="flex justify-between items-center text-sm text-muted-foreground mt-1">
                                     <span>Pagado:</span>
-                                    <span className="text-green-600 font-medium">€{invoice.total_paid.toFixed(2)}</span>
+                                    <span className="text-green-600 font-medium">€{(invoice.total_paid || 0).toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-lg font-bold mt-2 pt-2 border-t border-dashed">
                                     <span>Pendiente:</span>
-                                    <span className={`${((totalBooking + totalExtras) - invoice.total_paid) > 0.01 ? 'text-red-600' : 'text-slate-400'}`}>
-                                        €{Math.max(0, (totalBooking + totalExtras) - invoice.total_paid).toFixed(2)}
+                                    <span className={`${((totalBooking + totalExtras) - (invoice.total_paid || 0)) > 0.01 ? 'text-red-600' : 'text-slate-400'}`}>
+                                        €{Math.max(0, (totalBooking + totalExtras) - (invoice.total_paid || 0)).toFixed(2)}
                                     </span>
                                 </div>
                             </>
@@ -292,7 +292,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                                         <Badge variant="outline" className="ml-auto mr-4">
                                             {paymentMethods?.find(m => m.id === p.payment_method_id)?.name || 'General'}
                                         </Badge>
-                                        <span className="font-bold text-green-700">€{p.amount.toFixed(2)}</span>
+                                        <span className="font-bold text-green-700">€{(p.amount || 0).toFixed(2)}</span>
                                     </div>
                                 ))}
                                 {(!invoice.payments || invoice.payments.length === 0) && (

@@ -163,7 +163,7 @@ export default async function FinancialsPage({
                         <Euro className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">€{totalRevenueCash.toFixed(2)}</div>
+                        <div className="text-2xl font-bold">€{(totalRevenueCash || 0).toFixed(2)}</div>
                         <p className="text-xs text-muted-foreground">
                             {range === 'today' ? "Recibido hoy" :
                                 range === 'month' ? "Recibido este mes" :
@@ -177,7 +177,7 @@ export default async function FinancialsPage({
                         <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-orange-600">€{pendingAmount.toFixed(2)}</div>
+                        <div className="text-2xl font-bold text-orange-600">€{(pendingAmount || 0).toFixed(2)}</div>
                         <p className="text-xs text-muted-foreground">De facturas del periodo</p>
                     </CardContent>
                 </Card>
@@ -239,8 +239,8 @@ export default async function FinancialsPage({
                                                         {invoice.status === 'paid' ? 'Pagada' : invoice.status === 'cancelled' ? 'Anulada' : 'Pendiente'}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell className="text-right">€{invoice.total_amount?.toFixed(2)}</TableCell>
-                                                <TableCell className="text-right text-green-600">€{invoice.total_paid?.toFixed(2)}</TableCell>
+                                                <TableCell className="text-right">€{(invoice.total_amount || 0).toFixed(2)}</TableCell>
+                                                <TableCell className="text-right text-green-600">€{(invoice.total_paid || 0).toFixed(2)}</TableCell>
                                                 <TableCell className="text-right font-bold text-orange-600">
                                                     {pending > 0.01 ? `€${pending.toFixed(2)}` : "-"}
                                                 </TableCell>
