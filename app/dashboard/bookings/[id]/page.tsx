@@ -41,12 +41,21 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
     // 6. Price Breakdown (Client-side calculation to avoid migration issues)
     // Fetch custom prices relevant to the booking range/unit
-    const { data: customPrices } = await supabase
-        .from("custom_prices")
-        .select("*")
-        .or(`unit_id.eq.${booking.unit_id},unit_type.eq.${booking.units?.type}`)
-        .lte("start_date", booking.check_out_date) // Optimization: overlap check could be better but this is safe
-        .gte("end_date", booking.check_in_date);
+    let customPrices: any[] = [];
+
+    // Only fetch custom prices if we have a valid unit to compare against
+    if (booking.unit_id && booking.units?.type) {
+        const { data: cpData } = await supabase
+            .from("custom_prices")
+            .select("*")
+            .or(`unit_id.eq.${booking.unit_id},unit_type.eq.${booking.units.type}`)
+            .lte("start_date", booking.check_out_date) // Optimization: overlap check could be better but this is safe
+            .gte("end_date", booking.check_in_date);
+
+        if (cpData) {
+            customPrices = cpData;
+        }
+    }
 
     // Generate daily breakdown
     const priceBreakdown = [];
