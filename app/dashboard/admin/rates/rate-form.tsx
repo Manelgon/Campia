@@ -9,6 +9,8 @@ import { createRateAction } from "./actions";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
+import { useState } from "react";
+
 interface RateFormProps {
     units: { id: string; name: string; type: string }[];
     unitTypes: string[];
@@ -17,6 +19,7 @@ interface RateFormProps {
 
 export function RateForm({ units, unitTypes, onSuccess }: RateFormProps) {
     const [isPending, startTransition] = useTransition();
+    const [targetType, setTargetType] = useState<string>("unit");
 
     const handleSubmit = (formData: FormData) => {
         startTransition(async () => {
@@ -36,7 +39,7 @@ export function RateForm({ units, unitTypes, onSuccess }: RateFormProps) {
         <form action={handleSubmit} className="space-y-4">
             <div className="space-y-2">
                 <Label>Objetivo</Label>
-                <Select name="targetType" defaultValue="unit">
+                <Select name="targetType" value={targetType} onValueChange={setTargetType}>
                     <SelectTrigger>
                         <SelectValue placeholder="Seleccionar tipo" />
                     </SelectTrigger>
@@ -54,15 +57,15 @@ export function RateForm({ units, unitTypes, onSuccess }: RateFormProps) {
                         <SelectValue placeholder="Seleccionar..." />
                     </SelectTrigger>
                     <SelectContent>
-
-                        <option disabled className="font-bold text-sm px-2 py-1">--- Tipos ---</option>
-                        {unitTypes.map(t => (
-                            <SelectItem key={`type-${t}`} value={t || 'all'}>{t}</SelectItem>
-                        ))}
-                        <option disabled className="font-bold text-sm px-2 py-1">--- Unidades ---</option>
-                        {units?.map(u => (
-                            <SelectItem key={u.id} value={u.id}>{u.name} ({u.type})</SelectItem>
-                        ))}
+                        {targetType === 'type' ? (
+                            unitTypes.map(t => (
+                                <SelectItem key={`type-${t}`} value={t || 'all'}>{t}</SelectItem>
+                            ))
+                        ) : (
+                            units?.map(u => (
+                                <SelectItem key={u.id} value={u.id}>{u.name} ({u.type})</SelectItem>
+                            ))
+                        )}
                     </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
