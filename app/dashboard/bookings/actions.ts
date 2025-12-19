@@ -67,6 +67,29 @@ export const createBookingAction = async (formData: FormData) => {
         entityId: (newBooking as any)?.id
     });
 
+    // [New] Snapshot Daily Rates for Immutability
+    // We call the existing DB function to get the breakdown, then store it.
+    const { data: breakdownData, error: breakdownError } = await supabase.rpc("get_booking_breakdown", {
+        p_unit_id: unitId,
+        p_check_in: checkIn,
+        p_check_out: checkOut
+    });
+
+    if (!breakdownError && breakdownData && breakdownData.length > 0) {
+        const ratesToInsert = breakdownData.map((rate: any) => ({
+            booking_id: newBooking.id,
+            date: rate.date,
+            price: rate.price,
+            source: rate.source
+        }));
+
+        await supabase.from("booking_daily_rates").insert(ratesToInsert);
+    } else if (breakdownError) {
+        console.error("Error fetching breakdown for snapshot:", breakdownError);
+        // We don't fail the booking creation, but we log the error. 
+        // The view will fallback to dynamic calc if table is empty.
+    }
+
     revalidatePath("/dashboard/bookings");
     return redirect("/dashboard/bookings");
 };

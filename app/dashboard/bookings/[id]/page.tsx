@@ -39,74 +39,89 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     // 5. Payment Methods
     const { data: paymentMethods } = await supabase.from("payment_methods").select("id, name").eq("is_active", true);
 
-    // 6. Price Breakdown (Client-side calculation to avoid migration issues)
-    // Fetch custom prices relevant to the booking range/unit
-    let customPrices: any[] = [];
+    // 6. Price Breakdown
+    // Strategy: Try to fetch stored immutable rates first (NEW way).
+    // If not found, fall back to calculating them dynamically (OLD way).
 
-    // Only fetch custom prices if we have a valid unit to compare against
-    if (booking.unit_id && booking.units?.type) {
-        const { data: cpData } = await supabase
-            .from("custom_prices")
-            .select("*")
-            .or(`unit_id.eq.${booking.unit_id},unit_type.eq.${booking.units.type}`)
-            .lte("start_date", booking.check_out_date) // Optimization: overlap check could be better but this is safe
-            .gte("end_date", booking.check_in_date);
+    let priceBreakdown: { date: string, price: number, source: string }[] = [];
 
-        if (cpData) {
-            customPrices = cpData;
+    // A. Try fetching stored rates
+    const { data: storedRates } = await supabase
+        .from("booking_daily_rates")
+        .select("date, price, source")
+        .eq("booking_id", id)
+        .order("date", { ascending: true });
+
+    if (storedRates && storedRates.length > 0) {
+        // Use stored rates
+        priceBreakdown = storedRates.map(r => ({
+            date: r.date, // already yyyy-MM-dd from DB date column usually
+            price: r.price,
+            source: r.source
+        }));
+    } else {
+        // B. Fallback: Calculate dynamically (Legacy behavior)
+        // Fetch custom prices relevant to the booking range/unit
+        let customPrices: any[] = [];
+
+        // Only fetch custom prices if we have a valid unit to compare against
+        if (booking.unit_id && booking.units?.type) {
+            const { data: cpData } = await supabase
+                .from("custom_prices")
+                .select("*")
+                .or(`unit_id.eq.${booking.unit_id},unit_type.eq.${booking.units.type}`)
+                .lte("start_date", booking.check_out_date) // Optimization: overlap check could be better but this is safe
+                .gte("end_date", booking.check_in_date);
+
+            if (cpData) {
+                customPrices = cpData;
+            }
         }
-    }
 
-    // Generate daily breakdown
-    const priceBreakdown = [];
-    if (booking.check_in_date && booking.check_out_date && booking.units) {
-        let currentDate = new Date(booking.check_in_date);
-        const endDate = new Date(booking.check_out_date);
-        const basePrice = booking.units.price_per_night;
+        if (booking.check_in_date && booking.check_out_date && booking.units) {
+            let currentDate = new Date(booking.check_in_date);
+            const endDate = new Date(booking.check_out_date);
+            const basePrice = booking.units.price_per_night;
 
-        while (currentDate < endDate) {
-            const dateStr = safeFormat(currentDate, "yyyy-MM-dd"); // Match DB date format
-            if (dateStr === "-") break; // Safety break
-            let dailyPrice = basePrice;
-            let source = "Tarifa Base";
+            while (currentDate < endDate) {
+                const dateStr = safeFormat(currentDate, "yyyy-MM-dd"); // Match DB date format
+                if (dateStr === "-") break; // Safety break
+                let dailyPrice = basePrice;
+                let source = "Tarifa Base";
 
-            // Find best custom price
-            // Priority: Unit specific > Type specific
-            // Sort by created_at desc if multiple match? (DB logic was order by created_at desc limit 1)
-            // Application logic: filter, sort, pick top.
+                const relevantPrices = customPrices?.filter(cp =>
+                    dateStr >= cp.start_date && dateStr <= cp.end_date
+                ) || [];
 
-            const relevantPrices = customPrices?.filter(cp =>
-                dateStr >= cp.start_date && dateStr <= cp.end_date
-            ) || [];
-
-            // 1. Check Unit specific
-            const unitPrice = relevantPrices
-                .filter(cp => cp.unit_id === booking.unit_id)
-                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-
-            if (unitPrice) {
-                dailyPrice = unitPrice.price;
-                source = "Tarifa Especial (Unidad)";
-            } else {
-                // 2. Check Type specific (only if no unit_id is set on the rule, typically)
-                // DB logic: "unit_id is null".
-                const typePrice = relevantPrices
-                    .filter(cp => !cp.unit_id && cp.unit_type === booking.units?.type)
+                // 1. Check Unit specific
+                const unitPrice = relevantPrices
+                    .filter(cp => cp.unit_id === booking.unit_id)
                     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
 
-                if (typePrice) {
-                    dailyPrice = typePrice.price;
-                    source = "Tarifa Especial (Tipo)";
+                if (unitPrice) {
+                    dailyPrice = unitPrice.price;
+                    source = "Tarifa Especial (Unidad)";
+                } else {
+                    // 2. Check Type specific (only if no unit_id is set on the rule, typically)
+                    // DB logic: "unit_id is null".
+                    const typePrice = relevantPrices
+                        .filter(cp => !cp.unit_id && cp.unit_type === booking.units?.type)
+                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+
+                    if (typePrice) {
+                        dailyPrice = typePrice.price;
+                        source = "Tarifa Especial (Tipo)";
+                    }
                 }
+
+                priceBreakdown.push({
+                    date: dateStr,
+                    price: dailyPrice,
+                    source: source
+                });
+
+                currentDate.setDate(currentDate.getDate() + 1);
             }
-
-            priceBreakdown.push({
-                date: dateStr,
-                price: dailyPrice,
-                source: source
-            });
-
-            currentDate.setDate(currentDate.getDate() + 1);
         }
     }
 
