@@ -12,9 +12,10 @@ import { Loader2 } from "lucide-react";
 interface RateFormProps {
     units: { id: string; name: string; type: string }[];
     unitTypes: string[];
+    onSuccess?: () => void;
 }
 
-export function RateForm({ units, unitTypes }: RateFormProps) {
+export function RateForm({ units, unitTypes, onSuccess }: RateFormProps) {
     const [isPending, startTransition] = useTransition();
 
     const handleSubmit = (formData: FormData) => {
@@ -24,7 +25,9 @@ export function RateForm({ units, unitTypes }: RateFormProps) {
                 toast.error(res.error);
             } else {
                 toast.success("Tarifa creada correctamente");
-                // Reset form? Optional.
+                if (onSuccess) {
+                    onSuccess();
+                }
             }
         });
     };

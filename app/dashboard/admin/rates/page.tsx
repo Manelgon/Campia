@@ -1,10 +1,10 @@
 import { createClient } from "@/utils/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { RateForm } from "./rate-form";
-import { RateDeleteButton } from "./rate-delete-button";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { RatesList } from "@/components/dashboard/rates/rates-list";
+import { AddRateDialog } from "@/components/dashboard/rates/add-rate-dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function RatesPage() {
     const supabase = await createClient();
@@ -22,7 +22,7 @@ export default async function RatesPage() {
         console.error("Error fetching rates:", fetchError);
     }
 
-    // Fetch units for the form
+    // Fetch units for the form dialog
     const { data: units } = await supabase.from("units").select("id, name, type");
 
     // Get unique types
@@ -30,66 +30,36 @@ export default async function RatesPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" asChild>
-                    <Link href="/dashboard/admin">
-                        <ArrowLeft className="h-4 w-4" />
-                    </Link>
-                </Button>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" asChild>
+                        <Link href="/dashboard/admin">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Link>
+                    </Button>
+                    <div>
+                        <h2 className="text-3xl font-bold tracking-tight">Gestión de Tarifas</h2>
+                        <p className="text-muted-foreground">Define precios variables por temporada, día o tipo de unidad.</p>
+                    </div>
+                </div>
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Gestión de Tarifas</h2>
-                    <p className="text-muted-foreground">Define precios variables por temporada, día o tipo de unidad.</p>
+                    <AddRateDialog units={units || []} unitTypes={unitTypes} />
                 </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-3">
-                {/* Form Section */}
-                <Card className="md:col-span-1 h-fit">
-                    <CardHeader>
-                        <CardTitle>Nueva Tarifa</CardTitle>
-                        <CardDescription>Añadir una excepción de precio.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <RateForm units={units || []} unitTypes={unitTypes} />
-                    </CardContent>
-                </Card>
-
-                {/* List Section */}
-                <Card className="md:col-span-2">
-                    <CardHeader>
-                        <CardTitle>Tarifas Activas</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            {fetchError && (
-                                <div className="p-4 mb-4 text-red-700 bg-red-100 rounded-lg">
-                                    Error cargando tarifas: {fetchError.message}
-                                </div>
-                            )}
-                            {rates?.length === 0 && !fetchError && <p className="text-muted-foreground">No hay tarifas personalizadas.</p>}
-
-                            {rates?.map((rate) => (
-                                <div key={rate.id} className="flex items-center justify-between p-4 border rounded-lg">
-                                    <div className="space-y-1">
-                                        <p className="font-medium">
-                                            {rate.unit_id
-                                                ? `Unidad: ${rate.units?.name}`
-                                                : `Tipo: ${rate.unit_type}`}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Del {new Date(rate.start_date).toLocaleDateString()} al {new Date(rate.end_date).toLocaleDateString()}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <span className="text-lg font-bold">€{rate.price}</span>
-                                        <RateDeleteButton rateId={rate.id} />
-                                    </div>
-                                </div>
-                            ))}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Listado de Tarifas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    {fetchError && (
+                        <div className="p-4 mb-4 text-red-700 bg-red-100 rounded-lg">
+                            Error cargando tarifas: {fetchError.message}
                         </div>
-                    </CardContent>
-                </Card>
-            </div>
+                    )}
+                    <RatesList rates={rates || []} />
+                </CardContent>
+            </Card>
         </div>
     );
 }
