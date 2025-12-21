@@ -28,6 +28,7 @@ interface Ticket {
     status: "open" | "in_progress" | "resolved" | "closed";
     assigned_to: string | null;
     assigned_to_name: string | null;
+    reported_by_name: string | null;
     created_at: string;
 }
 
@@ -83,6 +84,7 @@ export function TicketTable({ tickets, staff }: { tickets: Ticket[], staff: any[
                     <SortableHead column="title" label="Incidencia" />
                     <SortableHead column="unit_name" label="Unidad" />
                     <SortableHead column="priority" label="Prioridad" />
+                    <SortableHead column="reported_by_name" label="Reportado Por" />
                     <SortableHead column="assigned_to_name" label="Asignado a" />
                     <SortableHead column="created_at" label="Fecha" />
                     <SortableHead column="status" label="Estado" />
@@ -111,6 +113,9 @@ export function TicketTable({ tickets, staff }: { tickets: Ticket[], staff: any[
                             <Badge variant={ticket.priority === "critical" ? "destructive" : ticket.priority === "high" ? "destructive" : ticket.priority === "low" ? "outline" : "secondary"}>
                                 {ticket.priority === "critical" ? "CRÍTICA" : ticket.priority === "high" ? "ALTA" : ticket.priority === "low" ? "BAJA" : "MEDIA"}
                             </Badge>
+                        </TableCell>
+                        <TableCell>
+                            <span className="text-sm font-medium">{ticket.reported_by_name || "Sistema"}</span>
                         </TableCell>
                         <TableCell>
                             <Link href={`/dashboard/maintenance/${ticket.id}`} className="hover:underline block w-full h-full">
